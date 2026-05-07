@@ -1,0 +1,566 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>UE 指标分解树交互示意</title>
+  <style>
+    :root {
+      --bg: #f6f7f9;
+      --panel: #ffffff;
+      --panel-soft: #f1f5f9;
+      --text: #111827;
+      --muted: #64748b;
+      --line: #d9e0e8;
+      --accent: #2563eb;
+      --accent-soft: #dbeafe;
+      --warning: #b45309;
+      --warning-soft: #fef3c7;
+      --success: #047857;
+      --danger: #b91c1c;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .page {
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    .header {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+
+    h1, h2, h3, p { margin: 0; }
+    h1 { font-size: 24px; line-height: 1.25; }
+    h2 { font-size: 16px; }
+    h3 { font-size: 14px; }
+    .sub { color: var(--muted); font-size: 13px; margin-top: 6px; }
+
+    .tabs, .modes, .param-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    button {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      color: var(--text);
+      border-radius: 9px;
+      padding: 8px 11px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    button.active {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: white;
+    }
+
+    button:hover { border-color: var(--accent); }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 2fr) minmax(320px, 0.9fr);
+      gap: 18px;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+    }
+
+    .card-header {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .card-body { padding: 16px; }
+
+    .mode-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .mode-card {
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--panel);
+      cursor: pointer;
+    }
+
+    .mode-card.active {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+    }
+
+    .metric-canvas {
+      min-height: 620px;
+      overflow: auto;
+      padding: 8px;
+    }
+
+    .tree {
+      min-width: 860px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0;
+      padding: 8px;
+    }
+
+    .row {
+      display: grid;
+      gap: 14px;
+      width: 100%;
+      justify-content: center;
+    }
+
+    .row.two { grid-template-columns: repeat(2, 180px); }
+    .row.three { grid-template-columns: repeat(3, 180px); }
+    .row.five { grid-template-columns: repeat(5, 150px); }
+
+    .node {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      border-radius: 12px;
+      padding: 12px;
+      min-height: 92px;
+      cursor: pointer;
+      transition: transform 160ms ease, background 160ms ease, border-color 160ms ease;
+    }
+
+    .node:hover { transform: translateY(-1px); border-color: var(--accent); }
+    .node.active {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+    }
+    .node.changed {
+      border-color: var(--warning);
+      background: var(--warning-soft);
+    }
+
+    .node-title {
+      font-size: 13px;
+      font-weight: 700;
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .node-value {
+      font-size: 22px;
+      font-weight: 800;
+      margin-top: 8px;
+    }
+
+    .node-sub {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 4px;
+      line-height: 1.35;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 2px 7px;
+      background: var(--panel-soft);
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .pill.warning {
+      color: var(--warning);
+      background: var(--warning-soft);
+    }
+
+    .connector {
+      width: 1px;
+      height: 24px;
+      background: var(--line);
+    }
+
+    .cost-box {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--panel-soft);
+    }
+
+    .side {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .stat {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px;
+      background: var(--panel-soft);
+    }
+
+    .stat-label {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .stat-value {
+      font-size: 24px;
+      font-weight: 800;
+      margin-top: 4px;
+    }
+
+    .explain-block {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding-top: 10px;
+      border-top: 1px solid var(--line);
+    }
+
+    .explain-block strong {
+      font-size: 13px;
+    }
+
+    .explain-block span {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .impact {
+      background: var(--warning-soft);
+      color: var(--warning);
+      border-radius: 10px;
+      padding: 10px;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .footer {
+      margin-top: 18px;
+      border-top: 1px solid var(--line);
+      padding-top: 16px;
+    }
+
+    .motion-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+
+    .motion-item {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px;
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    @media (max-width: 980px) {
+      .layout { grid-template-columns: 1fr; }
+      .mode-grid, .motion-grid { grid-template-columns: 1fr; }
+      .header { align-items: flex-start; flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="header">
+      <div>
+        <h1>指标分解树交互动态示意</h1>
+        <p class="sub">用于在飞书里收集团队意见：展示点击展开、选中节点、右侧公式抽屉、参数修改后实时联动。</p>
+      </div>
+      <div class="tabs">
+        <button data-step="overview" class="active">1 默认态</button>
+        <button data-step="expanded">2 展开成本</button>
+        <button data-step="selected">3 点击风险赔偿</button>
+        <button data-step="changed">4 调参联动</button>
+      </div>
+    </section>
+
+    <section class="mode-grid">
+      <div class="mode-card active" data-mode="platform">
+        <h3>平台模式</h3>
+        <p class="sub">月度收入 + 资产摊销 + 运营成本</p>
+      </div>
+      <div class="mode-card" data-mode="lease">
+        <h3>租赁模式</h3>
+        <p class="sub">月度收入 + 折旧口径 + 运营成本</p>
+      </div>
+      <div class="mode-card" data-mode="sale">
+        <h3>卖车模式</h3>
+        <p class="sub">一次性售价 + 硬件成本 + 累计运营</p>
+      </div>
+    </section>
+
+    <section class="layout">
+      <div class="card">
+        <div class="card-header">
+          <h2>中间主画布：单车毛利分解树</h2>
+          <span class="pill" id="modePill">平台模式</span>
+        </div>
+        <div class="card-body metric-canvas">
+          <div class="tree" id="tree"></div>
+        </div>
+      </div>
+
+      <aside class="side">
+        <div class="card">
+          <div class="card-header">
+            <h2 id="sideTitle">交互状态：默认态</h2>
+          </div>
+          <div class="card-body" id="sideBody"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h2>联动参数示意</h2>
+          </div>
+          <div class="card-body">
+            <p class="sub" style="margin-bottom: 12px;">业务用户不直接改公式，只改业务参数。</p>
+            <div class="stat">
+              <div class="stat-label">百台车月事故次数</div>
+              <div class="stat-value"><span id="accidentValue">23</span> 次</div>
+            </div>
+            <div class="param-buttons" style="margin-top: 12px;">
+              <button data-accident="15">降到 15</button>
+              <button data-accident="23">恢复 23</button>
+              <button data-accident="30">升到 30</button>
+            </div>
+            <p class="sub" style="margin-top: 12px;">受影响节点：风险赔偿、运营变动成本、单车成本、单车毛利。</p>
+          </div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="footer">
+      <h2>建议落地成页面时的动效</h2>
+      <div class="motion-grid" style="margin-top: 10px;">
+        <div class="motion-item">点击父节点，子节点从下方展开，避免一次性展示过多财务项。</div>
+        <div class="motion-item">选中某个指标后，右侧抽屉显示公式、解释和关联参数。</div>
+        <div class="motion-item">修改参数时，受影响链路短暂高亮，让用户看到因果传导。</div>
+        <div class="motion-item">切换平台/租赁/卖车时，树结构保持稳定，只替换口径和值。</div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const modeNames = {
+      platform: '平台模式',
+      lease: '租赁模式',
+      sale: '卖车模式'
+    };
+
+    const modeBase = {
+      platform: { revenue: 3000, asset: 1823, fixed: 300 },
+      lease: { revenue: 2500, asset: 1633, fixed: 250 },
+      sale: { revenue: 139800, asset: 78535, fixed: 0 }
+    };
+
+    const state = {
+      step: 'overview',
+      mode: 'platform',
+      accidentCount: 23
+    };
+
+    function format(value) {
+      return Math.round(value).toLocaleString('zh-CN');
+    }
+
+    function node(title, value, sub, options = {}) {
+      const classes = ['node'];
+      if (options.active) classes.push('active');
+      if (options.changed) classes.push('changed');
+      return `
+        <div class="${classes.join(' ')}" ${options.action ? `data-action="${options.action}"` : ''}>
+          <div class="node-title">
+            <span>${title}</span>
+            ${options.changed ? '<span class="pill warning">联动</span>' : ''}
+          </div>
+          <div class="node-value">${value}</div>
+          ${sub ? `<div class="node-sub">${sub}</div>` : ''}
+        </div>
+      `;
+    }
+
+    function renderTree() {
+      const tree = document.getElementById('tree');
+      const base = modeBase[state.mode];
+      const risk = state.accidentCount * 2500 / 100;
+      const variable = (state.mode === 'sale' ? 1159 : 1497) + risk;
+      const totalCost = base.asset + variable + base.fixed;
+      const grossProfit = base.revenue - totalCost;
+      const showDetail = state.step !== 'overview';
+      const showSelected = state.step === 'selected' || state.step === 'changed';
+      const changed = state.step === 'changed';
+
+      tree.innerHTML = `
+        ${node('单车毛利', format(grossProfit) + ' 元', '= 单车收入 - 单车成本', { active: state.step === 'overview', changed })}
+        <div class="connector"></div>
+        <div class="row two">
+          ${node('单车收入', format(base.revenue) + ' 元', state.mode === 'sale' ? '一次性售价' : '月度收入')}
+          ${node('单车成本', format(totalCost) + ' 元', '点击展开成本结构', { active: showDetail, changed, action: 'expand' })}
+        </div>
+        ${showDetail ? `
+          <div class="connector"></div>
+          <div class="row three">
+            ${node('资产成本', format(base.asset) + ' 元', state.mode === 'sale' ? '硬件+预计负债' : '摊销口径')}
+            ${node('运营变动', format(variable) + ' 元', '随事故/人效/MPRI变化', { active: showSelected, changed })}
+            ${node('运营固定', format(base.fixed) + ' 元', '仓储/地勤/路线')}
+          </div>
+          <div class="connector"></div>
+          <div class="cost-box">
+            <div class="row five">
+              ${node('远驾', '804', '人车比影响')}
+              ${node('云服务', '63', 'MPRI影响')}
+              ${node('维修', '10', '故障次数影响')}
+              ${node('风险赔偿', format(risk), '点击看公式', { active: showSelected, changed, action: 'select-risk' })}
+              ${node('采图制图', '50', '月度摊销')}
+            </div>
+          </div>
+        ` : ''}
+      `;
+
+      tree.querySelectorAll('[data-action="expand"]').forEach((el) => {
+        el.addEventListener('click', () => {
+          state.step = 'expanded';
+          syncControls();
+          render();
+        });
+      });
+
+      tree.querySelectorAll('[data-action="select-risk"]').forEach((el) => {
+        el.addEventListener('click', () => {
+          state.step = 'selected';
+          syncControls();
+          render();
+        });
+      });
+    }
+
+    function renderSide() {
+      const title = document.getElementById('sideTitle');
+      const body = document.getElementById('sideBody');
+      const risk = state.accidentCount * 2500 / 100;
+      const baseRisk = 23 * 2500 / 100;
+      const delta = risk - baseRisk;
+
+      if (state.step === 'overview') {
+        title.textContent = '交互状态：默认态';
+        body.innerHTML = `
+          <p class="sub">用户先看到“单车毛利”这个结果指标，页面用一句公式解释它来自收入和成本。</p>
+          <div class="explain-block">
+            <strong>目的</strong>
+            <span>先建立经营结果，而不是一上来展示完整财务表。</span>
+          </div>
+        `;
+        return;
+      }
+
+      if (state.step === 'expanded') {
+        title.textContent = '交互状态：展开成本';
+        body.innerHTML = `
+          <p class="sub">点击“单车成本”后，成本被拆成资产成本、运营变动成本、运营固定成本。</p>
+          <div class="explain-block">
+            <strong>目的</strong>
+            <span>让业务用户知道成本不是一个黑盒，而是由不同业务动作组成。</span>
+          </div>
+        `;
+        return;
+      }
+
+      title.textContent = '右侧指标抽屉：风险赔偿';
+      body.innerHTML = `
+        <div class="stat">
+          <div class="stat-label">当前值</div>
+          <div class="stat-value">${format(risk)} 元/车/月</div>
+        </div>
+        <div class="explain-block">
+          <strong>计算逻辑</strong>
+          <span>百台车月事故次数 × 单次赔偿金额 × 风险概率 / 100</span>
+        </div>
+        <div class="explain-block">
+          <strong>关联关系</strong>
+          <span>风险赔偿上升，会推高运营变动成本，进而推高单车成本，压低单车毛利。</span>
+        </div>
+        ${state.step === 'changed' ? `
+          <div class="impact">
+            事故次数从 23 调到 ${state.accidentCount}，风险赔偿变化 ${delta >= 0 ? '+' : ''}${format(delta)} 元/车/月，整棵树自动高亮受影响节点。
+          </div>
+        ` : ''}
+      `;
+    }
+
+    function syncControls() {
+      document.querySelectorAll('[data-step]').forEach((btn) => {
+        btn.classList.toggle('active', btn.dataset.step === state.step);
+      });
+      document.querySelectorAll('[data-mode]').forEach((card) => {
+        card.classList.toggle('active', card.dataset.mode === state.mode);
+      });
+      document.getElementById('modePill').textContent = modeNames[state.mode];
+      document.getElementById('accidentValue').textContent = state.accidentCount;
+    }
+
+    function render() {
+      syncControls();
+      renderTree();
+      renderSide();
+    }
+
+    document.querySelectorAll('[data-step]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        state.step = btn.dataset.step;
+        render();
+      });
+    });
+
+    document.querySelectorAll('[data-mode]').forEach((card) => {
+      card.addEventListener('click', () => {
+        state.mode = card.dataset.mode;
+        render();
+      });
+    });
+
+    document.querySelectorAll('[data-accident]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        state.accidentCount = Number(btn.dataset.accident);
+        state.step = 'changed';
+        render();
+      });
+    });
+
+    render();
+  </script>
+</body>
+</html>
