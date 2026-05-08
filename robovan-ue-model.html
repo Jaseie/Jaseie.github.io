@@ -167,18 +167,20 @@
 
     .tree-wrap { overflow: auto; min-height: 650px; }
     .tree {
-      min-width: 1080px;
+      min-width: 1280px;
       display: flex;
       flex-direction: column;
       align-items: center;
       padding: 8px;
     }
     .tree-row { display: grid; gap: 13px; width: 100%; justify-content: center; }
+    .tree-row.result { grid-template-columns: repeat(3, 180px); }
     .tree-row.two { grid-template-columns: repeat(2, 180px); }
     .tree-row.three { grid-template-columns: repeat(3, 180px); }
     .tree-row.asset { grid-template-columns: repeat(3, 170px); }
     .tree-row.variable { grid-template-columns: repeat(5, 150px); }
     .tree-row.fixed { grid-template-columns: repeat(3, 170px); }
+    .tree-row.params { grid-template-columns: repeat(4, 180px); }
     .connector { width: 1px; height: 22px; background: var(--line); }
     .tree-section {
       width: 100%;
@@ -208,6 +210,8 @@
     .node:hover { transform: translateY(-1px); border-color: var(--accent); }
     .node.active { border-color: var(--accent); background: var(--accent-soft); }
     .node.impacted { border-color: var(--warn); background: var(--warn-soft); }
+    .node.param { min-height: 76px; background: #fbfdff; }
+    .node.muted { opacity: 0.62; }
     .node-title { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; font-weight: 800; }
     .node-value { font-size: 20px; font-weight: 900; margin-top: 7px; }
     .node-sub { color: var(--muted); font-size: 12px; line-height: 1.35; margin-top: 4px; }
@@ -393,7 +397,10 @@
     ];
 
     const formulas = {
+      operatingResult: { name: '经营结果', formula: '单车毛利、毛利率、总毛利共同判断经营健康度', params: '单车收入、单车成本、车辆数/交付量', relation: ['收入/成本', '单车毛利', '毛利率/总毛利'] },
       grossProfit: { name: '单车毛利', formula: '单车收入 - 单车成本', params: '收入、资产成本、运营变动成本、运营固定成本', relation: ['单车收入', '单车成本', '单车毛利'] },
+      grossMargin: { name: '毛利率', formula: '单车毛利 / 单车收入', params: '单车毛利、单车收入', relation: ['单车毛利', '单车收入', '毛利率'] },
+      totalGrossProfit: { name: '总毛利', formula: '单车毛利 × 车辆数/交付量', params: '单车毛利、运营车辆数、交付量', relation: ['单车毛利', '规模', '总毛利'] },
       totalCost: { name: '单车成本', formula: '资产成本 + 运营变动成本 + 运营固定成本', params: '资产、运营、人力、风险、维修等全部变量', relation: ['资产/运营成本', '单车成本', '单车毛利'] },
       revenue: { name: '单车收入', formula: '平台/租赁为月度单车收入；卖车为单车售价', params: '单车收入、单车售价', relation: ['定价/售价', '单车收入', '单车毛利'] },
       assetCost: { name: '资产成本', formula: '平台: 硬件成本 × (1+IRR) / 5 / 12；租赁: 硬件成本 × 折旧残值率 / 折旧年限 / 12；卖车: 硬件成本 + max(累计运营成本, 预计负债)', params: '硬件成本、IRR、折旧残值率、折旧年限、预计负债比例', relation: ['硬件/摊销参数', '资产成本', '单车成本', '单车毛利'] },
@@ -414,7 +421,43 @@
       provision: { name: '预计负债', formula: '单车售价 × 预计负债比例，并与累计运营成本做孰高判断', params: '售价、预计负债比例、累计运营成本', relation: ['预计负债', '卖车成本', '单车毛利'] },
       warehouse: { name: '仓储', formula: '单车仓储固定额', params: '仓储成本', relation: ['仓储配置', '运营固定成本', '单车毛利'] },
       ground: { name: '地勤人员', formula: '地勤成本 / 地勤人车比 × (1+排班冗余)', params: '地勤成本、地勤人车比、排班冗余', relation: ['地勤人效', '运营固定成本', '单车毛利'] },
-      route: { name: '路线部署', formula: '路线部署月度摊销', params: '路线部署费用', relation: ['路线部署', '运营固定成本', '单车毛利'] }
+      route: { name: '路线部署', formula: '路线部署月度摊销', params: '路线部署费用', relation: ['路线部署', '运营固定成本', '单车毛利'] },
+      platformRevenue: { name: '平台单车收入', formula: '平台模式月度单车收入输入值', params: '价格/合同口径', relation: ['平台单车收入', '单车收入', '单车毛利'] },
+      leaseRevenue: { name: '租赁单车收入', formula: '租赁模式月度单车收入输入值', params: '租赁价格/合同口径', relation: ['租赁单车收入', '单车收入', '单车毛利'] },
+      salePrice: { name: '卖车单车售价', formula: '卖车模式一次性单车售价', params: '售价、商务政策', relation: ['单车售价', '单车收入', '单车毛利'] },
+      vehicles: { name: '运营车辆数', formula: '当前月份累计运营车辆数', params: '投放/运营规模', relation: ['运营车辆数', '总收入/总成本', '总毛利'] },
+      deliveries: { name: '交付量', formula: '卖车模式当月交付量', params: '交付计划', relation: ['交付量', '总收入/总成本', '总毛利'] },
+      hardwareCost: { name: '硬件成本参数', formula: '单台车硬件成本输入值', params: 'BOM、采购、制造成本', relation: ['硬件成本', '资产成本', '单车毛利'] },
+      irr: { name: 'IRR', formula: '平台资产摊销使用的收益率参数', params: '资金成本/租赁口径', relation: ['IRR', '租赁成本', '资产成本'] },
+      depreciationRate: { name: '折旧残值率', formula: '租赁模式折旧成本使用的残值率参数', params: '折旧政策', relation: ['折旧残值率', '折旧成本', '资产成本'] },
+      depreciationYears: { name: '折旧年限', formula: '租赁模式折旧成本使用的年限参数', params: '折旧政策', relation: ['折旧年限', '折旧成本', '资产成本'] },
+      provisionRate: { name: '预计负债比例', formula: '预计负债 = 单车售价 × 预计负债比例', params: '预计负债比例、售价', relation: ['预计负债比例', '预计负债', '卖车单车成本'] },
+      accidents: { name: '百台车月事故次数', formula: '每百台车每月发生事故的次数', params: '安全运营表现', relation: ['事故次数', '风险赔偿/补充运力', '单车毛利'] },
+      compensation: { name: '单次赔偿金额', formula: '每次事故对应的平均赔偿金额', params: '保险/赔付口径', relation: ['赔偿金额', '风险赔偿', '单车毛利'] },
+      riskProb: { name: '风险概率', formula: '事故赔偿进入风险成本的概率参数', params: '风险估计', relation: ['风险概率', '风险赔偿', '单车毛利'] },
+      mpir: { name: 'MPRI', formula: '影响云服务工单与带宽成本的运营技术指标', params: 'MPRI', relation: ['MPRI', '云服务', '单车毛利'] },
+      workOrderDuration: { name: '工单时长', formula: '云服务成本中的单次工单时长', params: '工单时长', relation: ['工单时长', '云服务', '单车毛利'] },
+      bandwidth: { name: '带宽/出口流量', formula: '云服务成本中的带宽消耗与出口流量单价', params: '带宽、出口流量', relation: ['带宽/出口流量', '云服务', '单车毛利'] },
+      remoteRatio: { name: '远驾人车比', formula: '远驾安全员可覆盖车辆数', params: '远驾人车比', relation: ['远驾人车比', '远驾安全员', '单车毛利'] },
+      csRatio: { name: '客服人车比', formula: '客服人员可覆盖车辆数', params: '客服人车比', relation: ['客服人车比', '客服成本', '单车毛利'] },
+      groundRatio: { name: '地勤人车比', formula: '地勤人员可覆盖车辆数', params: '地勤人车比', relation: ['地勤人车比', '地勤人员', '单车毛利'] },
+      emptyMileage: { name: '空跑里程', formula: '每日空跑里程，用于计算充电成本', params: '运营路线/调度效率', relation: ['空跑里程', '充电', '单车毛利'] },
+      energy: { name: '能耗', formula: '每公里耗电量', params: '能耗', relation: ['能耗', '充电', '单车毛利'] },
+      electricityPrice: { name: '电费单价', formula: '每度电价格', params: '电价', relation: ['电费单价', '充电', '单车毛利'] },
+      faults: { name: '百台车月故障次数', formula: '每百台车每月故障次数', params: '可靠性表现', relation: ['故障次数', '维修', '单车毛利'] },
+      repairHours: { name: '单次维修工时', formula: '每次维修平均工时', params: '维修效率', relation: ['维修工时', '维修', '单车毛利'] },
+      laborCost: { name: '单工时成本', formula: '每个维修工时对应的人工成本', params: '工时成本', relation: ['工时成本', '维修', '单车毛利'] },
+      warehouseCost: { name: '仓储固定额', formula: '单车月度仓储固定成本', params: '仓储资源', relation: ['仓储固定额', '运营固定成本', '单车毛利'] },
+      routeDeployCost: { name: '路线部署费用', formula: '路线部署月度摊销费用', params: '路线部署', relation: ['路线部署费用', '运营固定成本', '单车毛利'] },
+      remoteCost: { name: '远驾月成本', formula: '远驾安全员单人月成本', params: '远驾月成本', relation: ['远驾月成本', '远驾安全员', '运营变动成本'] },
+      shiftRedundancy: { name: '排班冗余', formula: '人力成本乘以 (1+排班冗余)', params: '排班冗余', relation: ['排班冗余', '人力成本', '单车毛利'] },
+      csCost: { name: '客服月成本', formula: '客服单人月成本', params: '客服月成本', relation: ['客服月成本', '客服', '运营变动成本'] },
+      insuranceCost: { name: '月度保费', formula: '单车月度保险费用', params: '保险费', relation: ['保险费', '运营变动成本', '单车毛利'] },
+      trafficCost: { name: '月度流量费', formula: '单车月度流量费用', params: '流量套餐', relation: ['流量费', '运营变动成本', '单车毛利'] },
+      orderMileage: { name: '接单里程', formula: '补充运力成本使用的接单里程', params: '接单里程', relation: ['接单里程', '补充运力', '运营变动成本'] },
+      backupPrice: { name: '补充运力单价', formula: '每公里补充运力价格', params: '补充运力单价', relation: ['补充运力单价', '补充运力', '运营变动成本'] },
+      mappingCost: { name: '采图制图费用', formula: '采图制图月度摊销费用', params: '采图制图费用', relation: ['采图制图费用', '运营变动成本', '单车毛利'] },
+      groundCost: { name: '地勤月成本', formula: '地勤单人月成本', params: '地勤月成本', relation: ['地勤月成本', '地勤人员', '运营固定成本'] }
     };
 
     const state = {
@@ -531,11 +574,52 @@
     function node(key, value, sub, options = {}) {
       const active = state.selected === key || state.focus === key;
       const impacted = options.impacted;
-      return `<div class="node ${active ? 'active' : ''} ${impacted ? 'impacted' : ''}" data-node="${key}">
+      return `<div class="node ${active ? 'active' : ''} ${impacted ? 'impacted' : ''} ${options.param ? 'param' : ''} ${options.muted ? 'muted' : ''}" data-node="${key}">
         <div class="node-title"><span>${formulas[key]?.name || key}</span>${impacted ? '<span class="pill warn">联动</span>' : ''}</div>
         <div class="node-value">${value}</div>
         <div class="node-sub">${sub}</div>
       </div>`;
+    }
+
+    function parameterNodesFor(key, data, mode) {
+      const i = state.inputs;
+      const common = {
+        revenue: mode === 'platform'
+          ? [['platformRevenue', fmt(i.platformRevenue, ' 元/月'), '平台收入输入'], ['vehicles', fmt(i.vehicles, ' 辆'), '影响总盘子']]
+          : mode === 'lease'
+            ? [['leaseRevenue', fmt(i.leaseRevenue, ' 元/月'), '租赁收入输入'], ['vehicles', fmt(i.vehicles, ' 辆'), '影响总盘子']]
+            : [['salePrice', fmt(i.salePrice, ' 元'), '卖车售价输入'], ['deliveries', fmt(i.deliveries, ' 辆'), '影响总盘子']],
+        grossProfit: [['revenue', fmt(data.revenue, ' 元'), '收入侧'], ['totalCost', fmt(data.totalCost, ' 元'), '成本侧']],
+        grossMargin: [['grossProfit', fmt(data.grossProfit, ' 元'), '分子'], ['revenue', fmt(data.revenue, ' 元'), '分母']],
+        totalGrossProfit: [['grossProfit', fmt(data.grossProfit, ' 元'), '单车毛利'], [mode === 'sale' ? 'deliveries' : 'vehicles', fmt(data.count, mode === 'sale' ? ' 辆交付' : ' 辆运营'), '规模']],
+        totalCost: [['assetCost', fmt(data.assetCost, ' 元'), '资产侧'], ['variableCost', fmt(data.variableCost, ' 元'), '运营变动'], ['fixedCost', fmt(data.fixedCost, ' 元'), '运营固定']],
+        assetCost: mode === 'platform'
+          ? [['hardwareCost', fmt(i.hardwareCost, ' 元'), '硬件成本'], ['irr', pct(i.irr * 100), 'IRR'], ['depreciationYears', '5 年', '摊销年限']]
+          : mode === 'lease'
+            ? [['hardwareCost', fmt(i.hardwareCost, ' 元'), '硬件成本'], ['depreciationRate', pct(i.depreciationRate * 100), '折旧残值率'], ['depreciationYears', fmt(i.depreciationYears, ' 年'), '折旧年限']]
+            : [['hardwareCost', fmt(i.hardwareCost, ' 元'), '硬件成本'], ['provisionRate', pct(i.provisionRate * 100), '预计负债比例'], ['salePrice', fmt(i.salePrice, ' 元'), '售价']],
+        variableCost: [['charging', fmt(data.charging, ' 元'), '充电'], ['remote', fmt(data.remote, ' 元'), '远驾'], ['risk', fmt(data.risk, ' 元'), '风险'], ['cloud', fmt(data.cloud, ' 元'), '云服务'], ['repair', fmt(data.repair, ' 元'), '维修']],
+        fixedCost: [['warehouse', fmt(data.warehouse, ' 元'), '仓储'], ['ground', fmt(data.ground, ' 元'), '地勤'], ['route', fmt(data.route, ' 元'), '路线部署']],
+        hardware: [['hardwareCost', fmt(i.hardwareCost, ' 元'), 'BOM/采购成本']],
+        depreciation: mode === 'platform'
+          ? [['hardwareCost', fmt(i.hardwareCost, ' 元'), '硬件成本'], ['irr', pct(i.irr * 100), 'IRR']]
+          : [['hardwareCost', fmt(i.hardwareCost, ' 元'), '硬件成本'], ['depreciationRate', pct(i.depreciationRate * 100), '折旧残值率'], ['depreciationYears', fmt(i.depreciationYears, ' 年'), '折旧年限']],
+        provision: [['salePrice', fmt(i.salePrice, ' 元'), '售价'], ['provisionRate', pct(i.provisionRate * 100), '预计负债比例']],
+        charging: [['emptyMileage', fmt(i.emptyMileage, ' 公里'), '空跑里程'], ['energy', i.energy.toFixed(2), '能耗'], ['electricityPrice', fmt(i.electricityPrice, ' 元/度'), '电费单价']],
+        remote: [['remoteRatio', fmt(i.remoteRatio), '远驾人车比'], ['remoteCost', '9,500 元', '月成本'], ['shiftRedundancy', '10%', '排班冗余']],
+        cs: [['csRatio', fmt(i.csRatio), '客服人车比'], ['csCost', '5,000 元', '月成本'], ['shiftRedundancy', '10%', '排班冗余']],
+        insurance: [['insuranceCost', '50 元', '月度保费']],
+        risk: [['accidents', fmt(i.accidents, ' 次'), '百台车月事故'], ['compensation', fmt(i.compensation, ' 元'), '单次赔偿'], ['riskProb', fmt(i.riskProb), '风险概率']],
+        traffic: [['trafficCost', fmt(mode === 'platform' ? 100 : 0, ' 元'), '月度流量费']],
+        cloud: [['mpir', fmt(i.mpir), 'MPRI'], ['workOrderDuration', fmt(i.workOrderDuration, ' 秒'), '工单时长'], ['bandwidth', '带宽/出口', '流量参数']],
+        backup: [['accidents', fmt(i.accidents, ' 次'), '百台车月事故'], ['orderMileage', '25 公里', '接单里程'], ['backupPrice', '10 元/公里', '补充运力单价']],
+        repair: [['faults', fmt(i.faults, ' 次'), '百台车月故障'], ['repairHours', '12 小时', '单次维修工时'], ['laborCost', '80 元/小时', '单工时成本']],
+        mapping: [['mappingCost', '50 元', '采图制图摊销']],
+        warehouse: [['warehouseCost', fmt(data.warehouse, ' 元'), '仓储固定额']],
+        ground: [['groundRatio', fmt(i.groundRatio), '地勤人车比'], ['groundCost', '5,000 元', '地勤成本'], ['shiftRedundancy', '10%', '排班冗余']],
+        route: [['routeDeployCost', fmt(data.route, ' 元'), '路线部署费用']]
+      };
+      return common[key] || [];
     }
 
     function renderControls() {
@@ -640,17 +724,17 @@
 
     function impactedNodes() {
       const map = {
-        accidents: ['risk', 'backup', 'variableCost', 'totalCost', 'grossProfit'],
-        compensation: ['risk', 'variableCost', 'totalCost', 'grossProfit'],
-        faults: ['repair', 'variableCost', 'totalCost', 'grossProfit'],
-        mpir: ['cloud', 'variableCost', 'totalCost', 'grossProfit'],
-        workOrderDuration: ['cloud', 'variableCost', 'totalCost', 'grossProfit'],
-        remoteRatio: ['remote', 'variableCost', 'totalCost', 'grossProfit'],
-        groundRatio: ['ground', 'fixedCost', 'totalCost', 'grossProfit'],
-        hardwareCost: ['hardware', 'assetCost', 'totalCost', 'grossProfit'],
-        platformRevenue: ['revenue', 'grossProfit'],
-        leaseRevenue: ['revenue', 'grossProfit'],
-        salePrice: ['revenue', 'provision', 'assetCost', 'grossProfit']
+        accidents: ['accidents', 'risk', 'backup', 'variableCost', 'totalCost', 'grossProfit', 'grossMargin', 'totalGrossProfit'],
+        compensation: ['compensation', 'risk', 'variableCost', 'totalCost', 'grossProfit', 'grossMargin', 'totalGrossProfit'],
+        faults: ['faults', 'repair', 'variableCost', 'totalCost', 'grossProfit', 'grossMargin', 'totalGrossProfit'],
+        mpir: ['mpir', 'cloud', 'variableCost', 'totalCost', 'grossProfit', 'grossMargin', 'totalGrossProfit'],
+        workOrderDuration: ['workOrderDuration', 'cloud', 'variableCost', 'totalCost', 'grossProfit', 'grossMargin', 'totalGrossProfit'],
+        remoteRatio: ['remoteRatio', 'remote', 'variableCost', 'totalCost', 'grossProfit', 'grossMargin', 'totalGrossProfit'],
+        groundRatio: ['groundRatio', 'ground', 'fixedCost', 'totalCost', 'grossProfit', 'grossMargin', 'totalGrossProfit'],
+        hardwareCost: ['hardwareCost', 'hardware', 'assetCost', 'totalCost', 'grossProfit', 'grossMargin', 'totalGrossProfit'],
+        platformRevenue: ['platformRevenue', 'revenue', 'grossProfit', 'grossMargin', 'totalGrossProfit'],
+        leaseRevenue: ['leaseRevenue', 'revenue', 'grossProfit', 'grossMargin', 'totalGrossProfit'],
+        salePrice: ['salePrice', 'revenue', 'provision', 'assetCost', 'grossProfit', 'grossMargin', 'totalGrossProfit']
       };
       return new Set(map[state.changedVar] || [state.selected]);
     }
@@ -659,9 +743,17 @@
       const mode = currentMode();
       const d = calculate(mode);
       const impacted = impactedNodes();
+      const paramNodes = parameterNodesFor(state.selected, d, mode);
       document.getElementById('treeModePill').textContent = modeNames[mode];
       document.getElementById('metricTree').innerHTML = `
-        ${node('grossProfit', fmt(d.grossProfit, ' 元'), '= 单车收入 - 单车成本', { impacted: impacted.has('grossProfit') })}
+        <div class="tree-section">
+          <div class="section-title"><span>经营结果层</span><span>先看结果，再下钻原因</span></div>
+          <div class="tree-row result">
+            ${node('grossProfit', fmt(d.grossProfit, ' 元'), '= 单车收入 - 单车成本', { impacted: impacted.has('grossProfit') })}
+            ${node('grossMargin', pct(d.grossMargin), '= 单车毛利 / 单车收入', { impacted: impacted.has('grossMargin') })}
+            ${node('totalGrossProfit', fmt(d.grossProfit * d.count, ' 元'), '= 单车毛利 × 规模', { impacted: impacted.has('totalGrossProfit') })}
+          </div>
+        </div>
         <div class="connector"></div>
         <div class="tree-row two">
           ${node('revenue', fmt(d.revenue, ' 元'), mode === 'sale' ? '一次性售价' : '月度收入', { impacted: impacted.has('revenue') })}
@@ -704,7 +796,16 @@
             ${node('ground', fmt(d.ground, ' 元'), '地勤人车比', { impacted: impacted.has('ground') })}
             ${node('route', fmt(d.route, ' 元'), '路线月度摊销', { impacted: impacted.has('route') })}
           </div>
-        </div>`;
+        </div>
+        ${paramNodes.length ? `
+          <div class="connector"></div>
+          <div class="tree-section">
+            <div class="section-title"><span>上游参数层：${formulas[state.selected]?.name || state.selected}</span><span>点击参数可查看它如何进入公式</span></div>
+            <div class="tree-row params">
+              ${paramNodes.map(([key, value, sub]) => node(key, value, sub, { param: true, impacted: impacted.has(key) })).join('')}
+            </div>
+          </div>
+        ` : ''}`;
       document.querySelectorAll('[data-node]').forEach((el) => {
         el.addEventListener('click', () => {
           state.selected = el.dataset.node;
@@ -718,12 +819,54 @@
       const key = state.selected;
       const f = formulas[key] || formulas.grossProfit;
       const d = calculate(currentMode());
-      const value = d[key] ?? (key === 'grossProfit' ? d.grossProfit : 0);
+      const valueMap = {
+        operatingResult: '',
+        grossMargin: pct(d.grossMargin),
+        totalGrossProfit: fmt(d.grossProfit * d.count, ' 元'),
+        platformRevenue: fmt(state.inputs.platformRevenue, ' 元/月'),
+        leaseRevenue: fmt(state.inputs.leaseRevenue, ' 元/月'),
+        salePrice: fmt(state.inputs.salePrice, ' 元'),
+        vehicles: fmt(state.inputs.vehicles, ' 辆'),
+        deliveries: fmt(state.inputs.deliveries, ' 辆'),
+        hardwareCost: fmt(state.inputs.hardwareCost, ' 元'),
+        irr: pct(state.inputs.irr * 100),
+        depreciationRate: pct(state.inputs.depreciationRate * 100),
+        depreciationYears: fmt(state.inputs.depreciationYears, ' 年'),
+        provisionRate: pct(state.inputs.provisionRate * 100),
+        accidents: fmt(state.inputs.accidents, ' 次'),
+        compensation: fmt(state.inputs.compensation, ' 元'),
+        riskProb: fmt(state.inputs.riskProb),
+        mpir: fmt(state.inputs.mpir),
+        workOrderDuration: fmt(state.inputs.workOrderDuration, ' 秒'),
+        bandwidth: '带宽/出口参数',
+        remoteRatio: fmt(state.inputs.remoteRatio),
+        csRatio: fmt(state.inputs.csRatio),
+        groundRatio: fmt(state.inputs.groundRatio),
+        emptyMileage: fmt(state.inputs.emptyMileage, ' 公里'),
+        energy: state.inputs.energy.toFixed(2),
+        electricityPrice: fmt(state.inputs.electricityPrice, ' 元/度'),
+        faults: fmt(state.inputs.faults, ' 次'),
+        repairHours: '12 小时',
+        laborCost: '80 元/小时',
+        warehouseCost: fmt(d.warehouse, ' 元'),
+        routeDeployCost: fmt(d.route, ' 元'),
+        remoteCost: '9,500 元',
+        shiftRedundancy: '10%',
+        csCost: '5,000 元',
+        insuranceCost: '50 元',
+        trafficCost: fmt(d.traffic, ' 元'),
+        orderMileage: '25 公里',
+        backupPrice: '10 元/公里',
+        mappingCost: '50 元',
+        groundCost: '5,000 元'
+      };
+      const rawValue = d[key] ?? (key === 'grossProfit' ? d.grossProfit : undefined);
+      const displayValue = valueMap[key] ?? (Number.isFinite(rawValue) ? fmt(rawValue, ' 元/车') : '查看公式');
       document.getElementById('drawerTitle').textContent = f.name;
       document.getElementById('drawer').innerHTML = `
         <div class="drawer-block">
           <div class="kpi-label">当前值</div>
-          <div class="kpi-value">${fmt(value, ' 元/车')}</div>
+          <div class="kpi-value">${displayValue}</div>
         </div>
         <div class="drawer-block">
           <h3>计算公式</h3>
