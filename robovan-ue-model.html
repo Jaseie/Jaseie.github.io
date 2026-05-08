@@ -162,6 +162,11 @@
       color: white;
     }
     .metric-button:hover, .action-button:hover, .small-button:hover { border-color: var(--accent); }
+    .small-button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      border-color: var(--line);
+    }
 
     .compare-row {
       display: grid;
@@ -1330,6 +1335,9 @@
       tab: 'overview',
       paramsHidden: false,
       lastImpact: null,
+      undoStack: [],
+      lastActionLabel: '初始基线',
+      lastChangedAt: Date.now(),
       goalTarget: 0,
       schemeA: null,
       schemeB: null,
@@ -1379,6 +1387,42 @@
       baseline: null
     };
     state.baseline = JSON.parse(JSON.stringify(state.inputs));
+
+    function cloneInputs(obj = state.inputs) {
+      return JSON.parse(JSON.stringify(obj));
+    }
+    function hasInputDiff(a, b) {
+      return JSON.stringify(a) !== JSON.stringify(b);
+    }
+    function pushUndoSnapshot(label = '调整参数') {
+      const latest = state.undoStack[state.undoStack.length - 1];
+      const current = cloneInputs();
+      if (!latest || hasInputDiff(latest.inputs, current)) {
+        state.undoStack.push({ inputs: current, label, at: Date.now() });
+      }
+      if (state.undoStack.length > 25) state.undoStack.shift();
+    }
+    function applyInputs(nextInputs, label = '调整参数', options = {}) {
+      if (!options.skipUndo) pushUndoSnapshot(label);
+      state.inputs = cloneInputs(nextInputs);
+      state.lastActionLabel = label;
+      state.lastChangedAt = Date.now();
+    }
+    function restoreBaseline(scope = 'month') {
+      const target = scope === 'global' ? state.baseline : (() => {
+        const x = cloneInputs(state.inputs);
+        x.vehicles = monthDefaults.vehicles[state.month];
+        x.deliveries = monthDefaults.saleDeliveries[state.month];
+        x.hardwareCost = monthDefaults.hardwareCost[state.month];
+        x.accidents = monthDefaults.accidents[state.month];
+        x.mpir = monthDefaults.mpir[state.month];
+        x.energy = monthDefaults.energy[state.month];
+        x.trafficCost = monthDefaults.traffic[state.month];
+        x.mappingCost = monthDefaults.mapping[state.month];
+        return x;
+      })();
+      applyInputs(target, scope === 'global' ? '恢复全局基线' : '恢复本页基线');
+    }
 
     const variableGroups = [
       ['收入与规模', [
@@ -1449,15 +1493,17 @@
     function isAnnualView() { return state.view === 'annual'; }
     function currentMode() { return isCompareView() ? state.mode : state.view; }
     function applyMonthDefaults(index) {
-      state.inputs.vehicles = monthDefaults.vehicles[index];
-      state.inputs.deliveries = monthDefaults.saleDeliveries[index];
-      state.inputs.hardwareCost = monthDefaults.hardwareCost[index];
-      state.inputs.accidents = monthDefaults.accidents[index];
-      state.inputs.mpir = monthDefaults.mpir[index];
-      state.inputs.energy = monthDefaults.energy[index];
-      state.inputs.trafficCost = monthDefaults.traffic[index];
-      state.inputs.mappingCost = monthDefaults.mapping[index];
-      state.baseline = JSON.parse(JSON.stringify(state.inputs));
+      const next = cloneInputs(state.inputs);
+      next.vehicles = monthDefaults.vehicles[index];
+      next.deliveries = monthDefaults.saleDeliveries[index];
+      next.hardwareCost = monthDefaults.hardwareCost[index];
+      next.accidents = monthDefaults.accidents[index];
+      next.mpir = monthDefaults.mpir[index];
+      next.energy = monthDefaults.energy[index];
+      next.trafficCost = monthDefaults.traffic[index];
+      next.mappingCost = monthDefaults.mapping[index];
+      applyInputs(next, `切换到 ${months[index]}`, { skipUndo: true });
+      state.baseline = cloneInputs(state.inputs);
       state.changedVar = 'accidents';
       state.selected = 'grossProfit';
     }
@@ -1553,7 +1599,11 @@
       }
       document.body.classList.toggle('params-hidden', state.paramsHidden);
       const meta = document.getElementById('toolbarMeta');
-      if (meta) meta.textContent = `${state.view === 'compare' ? '三模式对比' : modeNames[state.mode]} · ${state.scope === 'total' ? '总盘子' : '单车'} · ${months[state.month]}`;
+      if (meta) {
+        const scenario = hasInputDiff(state.inputs, state.baseline) ? '场景中' : '基线';
+        const timeText = new Date(state.lastChangedAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+        meta.textContent = `${state.view === 'compare' ? '三模式对比' : modeNames[state.mode]} · ${state.scope === 'total' ? '总盘子' : '单车'} · ${months[state.month]} · ${scenario} · ${state.lastActionLabel} (${timeText})`;
+      }
     }
 
     function applyTabVisibility() {
@@ -2060,8 +2110,11 @@
           const key = el.dataset.applyGoal;
           const val = Number(el.dataset.applyVal);
           const before = computeAnnualGpAll();
+          pushUndoSnapshot(`目标反推：${variableLabels[key] || key}`);
           state.inputs[key] = val;
           state.changedVar = key;
+          state.lastActionLabel = `目标反推：${variableLabels[key] || key}`;
+          state.lastChangedAt = Date.now();
           const after = computeAnnualGpAll();
           showImpactToast(key, before, after);
           render();
@@ -2072,9 +2125,9 @@
       document.getElementById('saveA').addEventListener('click', () => { state.schemeA = snapshot(mode); render(); });
       document.getElementById('saveB').addEventListener('click', () => { state.schemeB = snapshot(mode); render(); });
       const loadA = document.getElementById('loadA');
-      if (loadA) loadA.addEventListener('click', () => { state.inputs = JSON.parse(JSON.stringify(state.schemeA.inputs)); render(); });
+      if (loadA) loadA.addEventListener('click', () => { applyInputs(state.schemeA.inputs, '读入方案 A'); render(); });
       const loadB = document.getElementById('loadB');
-      if (loadB) loadB.addEventListener('click', () => { state.inputs = JSON.parse(JSON.stringify(state.schemeB.inputs)); render(); });
+      if (loadB) loadB.addEventListener('click', () => { applyInputs(state.schemeB.inputs, '读入方案 B'); render(); });
       const clearA = document.getElementById('clearA');
       if (clearA) clearA.addEventListener('click', () => { state.schemeA = null; render(); });
       const clearB = document.getElementById('clearB');
@@ -2312,6 +2365,15 @@
       });
 
       document.getElementById('variablePanel').innerHTML = `
+        <div class="summary" style="margin-bottom:10px;">
+          <h3>快速上手（3步）</h3>
+          <p class="sub">1) 选场景预设 2) 看动作卡“全年毛利变化” 3) 用滑杆微调并观察右侧图表。</p>
+        </div>
+        <div class="variable-tools">
+          <button class="small-button" id="undoInputBtn" ${state.undoStack.length ? '' : 'disabled'}>撤销一步</button>
+          <button class="small-button" id="resetMonthBtn">恢复本页基线</button>
+          <button class="small-button" id="resetGlobalBtn">恢复全局基线</button>
+        </div>
         <h3 style="font-size:12px;color:var(--muted);margin-bottom:8px;">📋 经营场景预设</h3>
         <div class="preset-grid">
           ${presets.map((p) => {
@@ -2359,13 +2421,27 @@
           </div>`).join('')}
         </div>`).join('')}`;
 
+      const undoBtn = document.getElementById('undoInputBtn');
+      if (undoBtn) {
+        undoBtn.addEventListener('click', () => {
+          const prev = state.undoStack.pop();
+          if (!prev) return;
+          applyInputs(prev.inputs, `撤销：${prev.label}`, { skipUndo: true });
+          render();
+        });
+      }
+      const resetMonthBtn = document.getElementById('resetMonthBtn');
+      if (resetMonthBtn) resetMonthBtn.addEventListener('click', () => { restoreBaseline('month'); render(); });
+      const resetGlobalBtn = document.getElementById('resetGlobalBtn');
+      if (resetGlobalBtn) resetGlobalBtn.addEventListener('click', () => { restoreBaseline('global'); render(); });
+
       document.querySelectorAll('[data-preset]').forEach((el) => {
         el.addEventListener('click', () => {
           const id = el.dataset.preset;
           const before = computeAnnualGpAll();
           const seed = JSON.parse(JSON.stringify(state.baseline));
           applyPreset(seed, id);
-          state.inputs = seed;
+          applyInputs(seed, `预设：${id === 'baseline' ? '表格基线' : id === 'ops' ? '运营优化版' : id === 'hardware' ? '硬件降本版' : '悲观压力测试'}`);
           state.changedVar = id === 'hardware' ? 'hardwareCost' : id === 'pessimistic' || id === 'ops' ? 'accidents' : null;
           const after = computeAnnualGpAll();
           if (state.changedVar) showImpactToast(state.changedVar, before, after);
@@ -2376,6 +2452,7 @@
         el.addEventListener('click', () => {
           const action = el.dataset.actionCard;
           const before = computeAnnualGpAll();
+          pushUndoSnapshot(`动作：${action}`);
           if (action === 'accident') {
             state.inputs.accidents = Math.max(1, Math.round(state.inputs.accidents * 0.65));
             state.changedVar = 'accidents';
@@ -2408,6 +2485,8 @@
             state.selected = 'cloud';
             state.expanded.variable = true;
           }
+          state.lastActionLabel = `动作：${action}`;
+          state.lastChangedAt = Date.now();
           const after = computeAnnualGpAll();
           showImpactToast(state.changedVar || 'action', before, after);
           render();
@@ -2417,9 +2496,12 @@
         el.addEventListener('input', () => {
           const key = el.dataset.range;
           const before = computeAnnualGpAll();
+          pushUndoSnapshot(`滑杆：${variableLabels[key] || key}`);
           state.inputs[key] = Number(el.value);
           state.changedVar = key;
           state.selected = variableToNode(key);
+          state.lastActionLabel = `滑杆：${variableLabels[key] || key}`;
+          state.lastChangedAt = Date.now();
           const after = computeAnnualGpAll();
           showImpactToast(key, before, after);
           render();
