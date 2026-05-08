@@ -2271,19 +2271,44 @@
         { id: 'cloud', name: '云服务优化 15%', chain: 'MPRI/工单时长 → 云服务 → 毛利' }
       ];
 
+      const applyPreset = (inp, id) => {
+        if (id === 'ops') {
+          inp.accidents = Math.max(1, Math.round(inp.accidents * 0.65));
+          inp.faults = Math.max(0.1, Number((inp.faults * 0.6).toFixed(2)));
+          inp.remoteRatio = Math.min(25, (inp.remoteRatio || 1) + 3);
+          // 卖车模式下，运营优化也体现在更低的后续责任成本
+          if (mode === 'sale') inp.provisionRate = Math.max(0.1, Number((inp.provisionRate - 0.05).toFixed(2)));
+        }
+        if (id === 'hardware') {
+          inp.hardwareCost = Math.round(inp.hardwareCost * 0.9);
+        }
+        if (id === 'pessimistic') {
+          inp.accidents = Math.round(inp.accidents * 1.5);
+          inp.energy = Number((inp.energy * 1.2).toFixed(3));
+          inp.faults = Number((inp.faults * 1.3).toFixed(2));
+          // 卖车模式下叠加价格与责任压力，避免“看起来没变化”
+          if (mode === 'sale') {
+            inp.salePrice = Math.round(inp.salePrice * 0.97);
+            inp.provisionRate = Math.min(0.5, Number((inp.provisionRate + 0.03).toFixed(2)));
+          }
+        }
+      };
+
       const presets = [
         { id: 'baseline', name: '🟢 表格基线', desc: '恢复表格上传的原始默认值', changes: '所有变量 → 基线值' },
-        { id: 'ops', name: '🟡 运营优化版', desc: '事故、故障、远驾全面收紧的乐观版本', changes: `事故 ${state.inputs.accidents} → 15 · 故障 ${state.inputs.faults} → 0.5 · 远驾比 +3` },
+        { id: 'ops', name: '🟡 运营优化版', desc: '事故、故障、远驾全面收紧的乐观版本', changes: '事故 ×0.65 · 故障 ×0.6 · 远驾比 +3' },
         { id: 'hardware', name: '🔵 硬件降本版', desc: '关注硬件 BOM 下行带动资产摊销', changes: `硬件成本 ${fmt(state.inputs.hardwareCost)} → ${fmt(Math.round(state.inputs.hardwareCost * 0.9))} (-10%)` },
-        { id: 'pessimistic', name: '🔴 悲观压力测试', desc: '事故率上升、能耗恶化的压力情景', changes: '事故 ×1.5 · 能耗 ×1.2 · 故障 ×1.3' }
+        { id: 'pessimistic', name: '🔴 悲观压力测试', desc: '事故率上升、能耗恶化的压力情景', changes: mode === 'sale' ? '事故 ×1.5 · 能耗 ×1.2 · 售价 ×0.97 · 预计负债 +0.03' : '事故 ×1.5 · 能耗 ×1.2 · 故障 ×1.3' }
       ];
       const presetDeltas = {};
+      const presetAnnual = {};
+      const baselineForPreset = JSON.parse(JSON.stringify(state.baseline || state.inputs));
+      const baselineAnnualGp = computeAnnualGpForInputs(mode, baselineForPreset);
       presets.forEach((p) => {
-        const inp = JSON.parse(JSON.stringify(state.baseline || state.inputs));
-        if (p.id === 'ops') { inp.accidents = 15; inp.faults = 0.5; inp.remoteRatio = Math.min(25, (inp.remoteRatio || 1) + 3); }
-        if (p.id === 'hardware') { inp.hardwareCost = Math.round(inp.hardwareCost * 0.9); }
-        if (p.id === 'pessimistic') { inp.accidents = Math.round(inp.accidents * 1.5); inp.energy = inp.energy * 1.2; inp.faults = inp.faults * 1.3; }
-        presetDeltas[p.id] = computeAnnualGpForInputs(mode, inp) - baseAnnualGp;
+        const inp = JSON.parse(JSON.stringify(baselineForPreset));
+        applyPreset(inp, p.id);
+        presetAnnual[p.id] = computeAnnualGpForInputs(mode, inp);
+        presetDeltas[p.id] = presetAnnual[p.id] - baselineAnnualGp;
       });
 
       document.getElementById('variablePanel').innerHTML = `
@@ -2300,9 +2325,10 @@
               <div class="sub">${p.desc}</div>
               <div class="preset-changes">${p.changes}</div>
               <div class="impact-line">
-                <span class="sub">应用后全年毛利</span>
+                <span class="sub">相对表格基线</span>
                 <span class="${dCls}">${d >= 0 ? '+' : ''}${fmt(d, ' 元')}</span>
               </div>
+              <div class="sub" style="margin-top:4px;">预设全年毛利：${fmt(presetAnnual[p.id], ' 元')}</div>
             </div>`;
           }).join('')}
         </div>
@@ -2337,19 +2363,9 @@
         el.addEventListener('click', () => {
           const id = el.dataset.preset;
           const before = computeAnnualGpAll();
-          if (id === 'baseline') {
-            state.inputs = JSON.parse(JSON.stringify(state.baseline));
-          } else if (id === 'ops') {
-            state.inputs.accidents = 15;
-            state.inputs.faults = 0.5;
-            state.inputs.remoteRatio = Math.min(25, state.inputs.remoteRatio + 3);
-          } else if (id === 'hardware') {
-            state.inputs.hardwareCost = Math.round(state.inputs.hardwareCost * 0.9);
-          } else if (id === 'pessimistic') {
-            state.inputs.accidents = Math.round(state.inputs.accidents * 1.5);
-            state.inputs.energy = state.inputs.energy * 1.2;
-            state.inputs.faults = state.inputs.faults * 1.3;
-          }
+          const seed = JSON.parse(JSON.stringify(state.baseline));
+          applyPreset(seed, id);
+          state.inputs = seed;
           state.changedVar = id === 'hardware' ? 'hardwareCost' : id === 'pessimistic' || id === 'ops' ? 'accidents' : null;
           const after = computeAnnualGpAll();
           if (state.changedVar) showImpactToast(state.changedVar, before, after);
