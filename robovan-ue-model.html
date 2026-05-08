@@ -989,12 +989,13 @@
     <div class="toolbar2">
       <button class="tb-toggle" id="paramsToggle" title="隐藏左侧参数面板，专注看图">⚙ 隐藏调参</button>
       <div class="tb-group" role="tablist">
-        <button class="tb-btn" data-tab-btn="overview">概览</button>
-        <button class="tb-btn" data-tab-btn="deepdive">深挖</button>
-        <button class="tb-btn" data-tab-btn="sandbox">沙盘</button>
-        <button class="tb-btn" data-tab-btn="annual">年度</button>
-        <button class="tb-btn" data-tab-btn="tree">指标树</button>
+        <button class="tb-btn" data-tab-btn="profit">1 赚还是亏</button>
+        <button class="tb-btn" data-tab-btn="breakeven">2 何时打平</button>
+        <button class="tb-btn" data-tab-btn="costs">3 钱花在哪</button>
+        <button class="tb-btn" data-tab-btn="actions">4 改什么有用</button>
+        <button class="tb-btn" data-tab-btn="safety">5 亏损安全吗</button>
       </div>
+      <button class="tb-toggle" id="logicToggle" title="查看公式和指标拆解">查看计算逻辑</button>
       <div class="tb-group">
         <button class="tb-btn" data-mode-btn="platform">平台</button>
         <button class="tb-btn" data-mode-btn="lease">租赁</button>
@@ -1014,8 +1015,8 @@
       <aside class="left-rail card" id="variableCard">
         <div class="card-header">
           <div>
-            <h2>调参与动作</h2>
-            <p class="sub">套用预设场景或拖动滑块，右侧图表实时联动。</p>
+            <h2>经营动作</h2>
+            <p class="sub">先选业务动作，必要时再展开高级参数。</p>
           </div>
         </div>
         <div class="card-body">
@@ -1030,11 +1031,11 @@
       </aside>
 
       <main class="center-stage">
-        <section class="card" data-tab="overview">
+        <section class="card" data-tab="profit">
           <div class="card-header">
             <div>
-              <h2>经营结论</h2>
-              <p class="sub">30 秒看懂当下三模式的状态。</p>
+              <h2>1. 现在赚还是亏？</h2>
+              <p class="sub">先看结果：当前模式是正毛利、亏损，还是仍处在投入期。</p>
             </div>
             <span class="pill active" id="currentMonthPill">2026年12月 · 单车口径</span>
           </div>
@@ -1043,11 +1044,11 @@
           </div>
         </section>
 
-        <section class="card" data-tab="overview">
+        <section class="card" data-tab="profit">
           <div class="card-header">
             <div>
-              <h2>三模式毛利子弹图</h2>
-              <p class="sub">一眼看清谁亏谁赚、差距多大。零线左侧亏、右侧赚。</p>
+              <h2>全年毛利对比</h2>
+              <p class="sub">零线左侧是亏损，右侧是盈利。先判断经营结果，再继续看原因。</p>
             </div>
             <span class="pill active" id="bulletScopePill">单车口径</span>
           </div>
@@ -1056,11 +1057,11 @@
           </div>
         </section>
 
-        <section class="card" data-tab="overview">
+        <section class="card" data-tab="costs">
           <div class="card-header">
             <div>
-              <h2>每 100 元收入花到哪</h2>
-              <p class="sub">100% 堆叠图回答：每赚 100 块，钱去了哪、剩多少。</p>
+              <h2>3. 钱主要花在哪？</h2>
+              <p class="sub">每 100 元收入中，资产、运营变动、运营固定分别吃掉多少，最后剩多少毛利。</p>
             </div>
           </div>
           <div class="card-body">
@@ -1068,11 +1069,11 @@
           </div>
         </section>
 
-        <section class="card" data-tab="deepdive">
+        <section class="card" data-tab="actions">
           <div class="card-header">
             <div>
-              <h2>敏感性龙卷风图</h2>
-              <p class="sub">每个变量 ±10%，谁对毛利的拉动力最大，条越长越值得优先优化。</p>
+              <h2>4. 改什么最有用？</h2>
+              <p class="sub">每个变量 ±10%，看谁对毛利拉动力最大。条越长，越应该优先优化。</p>
             </div>
             <span class="pill" id="tornadoModePill"></span>
           </div>
@@ -1081,10 +1082,10 @@
           </div>
         </section>
 
-        <section class="card" data-tab="deepdive">
+        <section class="card" data-tab="costs">
           <div class="card-header">
             <div>
-              <h2>月度成本结构堆叠图</h2>
+              <h2>月度成本结构怎么变？</h2>
               <p class="sub">12 个月的资产/变动/固定成本演变，柱顶折线是收入。</p>
             </div>
             <span class="pill" id="monthlyStackPill"></span>
@@ -1094,11 +1095,11 @@
           </div>
         </section>
 
-        <section class="card" data-tab="deepdive">
+        <section class="card" data-tab="costs">
           <div class="card-header">
             <div>
-              <h2>资金流向桑基图</h2>
-              <p class="sub">从收入到三类成本到毛利的水流图。</p>
+              <h2>收入流向哪里？</h2>
+              <p class="sub">从收入到三类成本再到毛利，用水流粗细看钱去了哪里。</p>
             </div>
             <span class="pill" id="sankeyModePill"></span>
           </div>
@@ -1109,11 +1110,11 @@
           </div>
         </section>
 
-        <section class="card" data-tab="sandbox">
+        <section class="card" data-tab="actions">
           <div class="card-header">
             <div>
-              <h2>目标反推 &amp; A/B 方案对比</h2>
-              <p class="sub">输入年度目标毛利反推单变量需要变多少；保存当前为 A/B 方案叠加对比。</p>
+              <h2>动作后结果会怎样？</h2>
+              <p class="sub">输入目标毛利反推变量变化，也可以保存 A/B 方案同屏比较。</p>
             </div>
           </div>
           <div class="card-body">
@@ -1121,7 +1122,7 @@
           </div>
         </section>
 
-        <section class="card" id="compareWorkspaceCard" data-tab="sandbox" style="display:none;">
+        <section class="card" id="compareWorkspaceCard" data-tab="profit" style="display:none;">
           <div class="card-header">
             <div>
               <h2>三模式对比工作区</h2>
@@ -1153,24 +1154,37 @@
           </div>
         </section>
 
-        <section class="card" id="annualWorkspaceCard" data-tab="annual" style="display:none;">
+        <section class="card" id="annualWorkspaceCard" data-tab="breakeven" style="display:none;">
           <div class="card-header">
             <div>
-              <h2>年度经营视图</h2>
-              <p class="sub">把全年对比变成经营复盘入口：结论、拆解、拐点、下钻。</p>
+              <h2>2. 单车什么时候打平？</h2>
+              <p class="sub">看单车毛利随月份变化，重点观察什么时候跨过 0 元盈亏平衡线。</p>
             </div>
-            <span class="pill active">全年复盘</span>
+            <span class="pill active">盈亏平衡线</span>
           </div>
           <div class="card-body">
             <div id="annualPanel"></div>
           </div>
         </section>
 
-        <section class="card" id="treeCard" data-tab="tree">
+        <section class="card" data-tab="safety">
           <div class="card-header">
             <div>
-              <h2>指标地图</h2>
-              <p class="sub">点击节点查看公式、上游参数和影响链路。</p>
+              <h2>5. 亏损是否还在安全范围内？</h2>
+              <p class="sub">用 Robovan 自身目标毛利空间，判断当前模式亏损是否可承受。</p>
+            </div>
+            <span class="pill active">目标毛利空间</span>
+          </div>
+          <div class="card-body">
+            <div id="safetyPanel"></div>
+          </div>
+        </section>
+
+        <section class="card" id="treeCard" data-tab="logic">
+          <div class="card-header">
+            <div>
+              <h2>计算逻辑：指标地图</h2>
+              <p class="sub">这是辅助入口：当你想知道某个指标怎么算时，再打开这里。</p>
             </div>
             <span class="pill active" id="treeModePill">平台模式</span>
           </div>
@@ -1182,7 +1196,7 @@
         </section>
       </main>
 
-      <aside class="right-rail" id="drawerCard" data-tab="tree">
+      <aside class="right-rail" id="drawerCard" data-tab="logic">
         <section class="card">
           <div class="card-header">
             <div>
@@ -1202,7 +1216,7 @@
       </aside>
     </section>
 
-    <section class="bottom-dock card collapsed" id="scenarioDock" data-tab="sandbox">
+    <section class="bottom-dock card collapsed" id="scenarioDock" data-tab="actions">
       <div class="card-header">
         <div>
           <h2>方案对比</h2>
@@ -1332,7 +1346,7 @@
       unitRevenue: '单车收入', platformRevenue: '平台单车收入', leaseRevenue: '租赁单车收入'
     };
     const state = {
-      tab: 'overview',
+      tab: 'profit',
       paramsHidden: false,
       lastImpact: null,
       undoStack: [],
@@ -1584,6 +1598,8 @@
       document.querySelectorAll('[data-tab-btn]').forEach((el) => {
         el.classList.toggle('active', el.dataset.tabBtn === state.tab);
       });
+      const logicToggle = document.getElementById('logicToggle');
+      if (logicToggle) logicToggle.classList.toggle('active', state.tab === 'logic');
       document.querySelectorAll('[data-mode-btn]').forEach((el) => {
         const isCompare = state.view === 'compare';
         const matches = el.dataset.modeBtn === 'compare' ? isCompare : (!isCompare && state.mode === el.dataset.modeBtn);
@@ -1608,16 +1624,15 @@
 
     function applyTabVisibility() {
       const isCompare = state.view === 'compare';
-      const isAnnual = state.view === 'annual' || state.tab === 'annual';
       document.querySelectorAll('[data-tab]').forEach((el) => {
         const tabs = el.dataset.tab.split(' ');
         const visible = tabs.includes(state.tab);
         el.classList.toggle('tab-visible', visible);
       });
       const compareCard = document.getElementById('compareWorkspaceCard');
-      if (compareCard) compareCard.style.display = (state.tab === 'sandbox' && isCompare) ? '' : 'none';
+      if (compareCard) compareCard.style.display = (state.tab === 'profit' && isCompare) ? '' : 'none';
       const annualCard = document.getElementById('annualWorkspaceCard');
-      if (annualCard) annualCard.style.display = state.tab === 'annual' ? '' : 'none';
+      if (annualCard) annualCard.style.display = state.tab === 'breakeven' ? '' : 'none';
     }
 
     function renderBulletChart() {
@@ -1689,6 +1704,51 @@
           <span><i style="background:#ef4444"></i>亏损（红）</span>
         </div>
       </div>`;
+    }
+
+    function renderSafetyPanel() {
+      const target = document.getElementById('safetyPanel');
+      if (!target) return;
+      const mode = currentMode();
+      const spaces = [
+        { label: '目标毛利率 20%', value: 10000000 },
+        { label: '目标毛利率 25%', value: 12500000 }
+      ];
+      const rows = ['platform', 'lease', 'sale'].map((m) => ({ mode: m, gp: computeAnnualGpForInputs(m, state.inputs) }));
+      const activeGp = computeAnnualGpForInputs(mode, state.inputs);
+      const isLoss = activeGp < 0;
+      target.innerHTML = `
+        <div class="insight-grid">
+          <div class="insight-card primary">
+            <div class="kpi-label">当前模式全年结果</div>
+            <div class="kpi-value ${activeGp >= 0 ? 'positive' : 'negative'}">${fmt(activeGp, ' 元')}</div>
+            <p class="sub">${activeGp >= 0 ? '当前模式不消耗目标毛利空间，反而贡献毛利。' : '当前模式仍在投入期，会消耗目标毛利空间。'}</p>
+          </div>
+          ${spaces.map((s) => {
+            const used = isLoss ? Math.abs(activeGp) : 0;
+            const ratio = Math.min(100, used / s.value * 100);
+            const left = s.value - used;
+            return `<div class="insight-card">
+              <div class="kpi-label">${s.label}</div>
+              <div class="kpi-value ${left >= 0 ? 'positive' : 'negative'}">${left >= 0 ? '剩余 ' : '超出 '}${fmt(Math.abs(left), ' 元')}</div>
+              <div class="bar-track" style="margin:10px 0;"><div class="waterfall-fill ${left < 0 ? 'cost' : ''}" style="width:${Math.max(4, ratio)}%"></div></div>
+              <p class="sub">已消耗 ${ratio.toFixed(1)}% · 上限 ${fmt(s.value, ' 元')}</p>
+            </div>`;
+          }).join('')}
+        </div>
+        <div class="summary" style="margin-top:14px;">
+          <h3>不同模式放进安全垫里怎么看</h3>
+          <div class="impact-list">
+            ${rows.map((r) => {
+              const status = r.gp >= 0 ? '贡献毛利' : Math.abs(r.gp) <= 10000000 ? '亏损可承受' : '超过1000万空间';
+              return `<div class="impact-item">
+                <span><strong>${modeNames[r.mode]}</strong><br><span class="sub">${status}</span></span>
+                <strong class="${r.gp >= 0 ? 'positive' : 'negative'}">${fmt(r.gp, ' 元')}</strong>
+              </div>`;
+            }).join('')}
+          </div>
+          <p class="sub" style="margin-top:10px;">阅读方式：这里不是 Robobus 覆盖 Robovan，而是 Robovan 自身目标毛利空间。亏损模式看“消耗了多少安全垫”，盈利模式看“贡献了多少毛利”。</p>
+        </div>`;
     }
 
     function renderTornado() {
@@ -2423,15 +2483,18 @@
           }).join('')}
         </div>
 
-        <h3 style="font-size:12px;color:var(--muted);margin:14px 0 8px;">🎚 变量微调</h3>
-        ${variableGroups.map(([group, vars]) => `<div class="variable-group">
-          <h3>${group}</h3>
-          ${vars.map(([key, label, min, max, step, unit]) => `<div class="var-card ${state.changedVar === key ? 'active' : ''}" data-var="${key}">
-            <div class="var-top"><span>${label}</span><span class="var-value">${fmt(state.inputs[key])}${unit && !['元/月', '元'].includes(unit) ? unit : ''}</span></div>
-            <div class="var-impact">${(impactLabels[key] || ['相关指标']).map((x) => `<span class="pill">${x}</span>`).join('')}</div>
-            <input type="range" min="${min}" max="${max}" step="${step}" value="${state.inputs[key]}" data-range="${key}" />
+        <details style="margin-top:14px;">
+          <summary style="cursor:pointer;font-weight:800;color:var(--muted);">高级参数：变量微调</summary>
+          <p class="sub" style="margin:8px 0;">普通用户优先用上面的“经营场景”和“业务动作”；需要精细模拟时再展开滑杆。</p>
+          ${variableGroups.map(([group, vars]) => `<div class="variable-group">
+            <h3>${group}</h3>
+            ${vars.map(([key, label, min, max, step, unit]) => `<div class="var-card ${state.changedVar === key ? 'active' : ''}" data-var="${key}">
+              <div class="var-top"><span>${label}</span><span class="var-value">${fmt(state.inputs[key])}${unit && !['元/月', '元'].includes(unit) ? unit : ''}</span></div>
+              <div class="var-impact">${(impactLabels[key] || ['相关指标']).map((x) => `<span class="pill">${x}</span>`).join('')}</div>
+              <input type="range" min="${min}" max="${max}" step="${step}" value="${state.inputs[key]}" data-range="${key}" />
+            </div>`).join('')}
           </div>`).join('')}
-        </div>`).join('')}`;
+        </details>`;
 
       const undoBtn = document.getElementById('undoInputBtn');
       if (undoBtn) {
@@ -3128,7 +3191,7 @@
           <p class="sub">${hasUserOverride ? '左侧业务变量改动正在按比例作用到全年 12 个月，下方走势图与瀑布图实时更新。' : '点击卡片切换下方“成本拆解”的关注模式；调整左侧变量可全年联动。'}</p>
         </div>
         <div class="health-grid">
-          ${annualByMode.map(({ mode: m, total }) => `<div class="health-card ${m === mode ? 'active' : ''}" style="cursor: pointer;" onclick="document.getElementById('viewSelect').value='${m}'; document.getElementById('viewSelect').dispatchEvent(new Event('change')); document.getElementById('viewSelect').value='annual'; document.getElementById('viewSelect').dispatchEvent(new Event('change'));">
+          ${annualByMode.map(({ mode: m, total }) => `<div class="health-card ${m === mode ? 'active' : ''}" style="cursor: pointer;" onclick="document.querySelector('[data-mode-btn=${m}]').click(); document.querySelector('[data-tab-btn=breakeven]').click();">
             <div class="mode-title"><h3>${modeNames[m]}</h3><span class="pill">${m === mode ? '当前拆解' : '点击切换'}</span></div>
             <div class="kpis">
               <div><div class="kpi-label">全年收入</div><div class="kpi-value">${fmt(total.revenue, ' 元')}</div></div>
@@ -3276,8 +3339,8 @@
 
     function renderViewMode() {
       const compare = isCompareView();
-      const isTreeTab = state.tab === 'tree';
-      const isAnnualTab = state.tab === 'annual';
+      const isTreeTab = state.tab === 'logic';
+      const isAnnualTab = state.tab === 'breakeven';
       const ws = document.getElementById('workspaceSection');
       ws.classList.toggle('tree-mode', isTreeTab);
       ws.classList.toggle('compare-mode', false);
@@ -3285,7 +3348,7 @@
       document.getElementById('variableCard').style.display = '';
       document.getElementById('treeCard').style.display = isTreeTab ? '' : 'none';
       document.getElementById('drawerCard').style.display = isTreeTab ? '' : 'none';
-      document.getElementById('compareWorkspaceCard').style.display = (state.tab === 'sandbox' && compare) ? '' : 'none';
+      document.getElementById('compareWorkspaceCard').style.display = (state.tab === 'profit' && compare) ? '' : 'none';
       document.getElementById('annualWorkspaceCard').style.display = isAnnualTab ? '' : 'none';
       if (isAnnualTab) {
         renderAnnualPanel();
@@ -3327,18 +3390,18 @@
       document.querySelectorAll('[data-tab-btn]').forEach((el) => {
         el.onclick = () => {
           state.tab = el.dataset.tabBtn;
-          if (state.tab === 'annual') state.view = 'annual';
-          else if (state.tab === 'sandbox' && state.view === 'annual') state.view = state.mode;
-          else if (state.view === 'annual' && state.tab !== 'annual') state.view = state.mode;
+          if (state.view === 'annual') state.view = state.mode;
           render();
         };
       });
+      const logicToggle = document.getElementById('logicToggle');
+      if (logicToggle) logicToggle.onclick = () => { state.tab = 'logic'; render(); };
       document.querySelectorAll('[data-mode-btn]').forEach((el) => {
         el.onclick = () => {
           const v = el.dataset.modeBtn;
           if (v === 'compare') {
             state.view = 'compare';
-            state.tab = 'sandbox';
+            state.tab = 'profit';
           } else {
             state.mode = v;
             state.view = v;
@@ -3360,6 +3423,7 @@
       renderHomeInsights();
       renderBulletChart();
       renderStackedChart();
+      renderSafetyPanel();
       renderGoalAbPanel();
       renderTornado();
       renderMonthlyStack();
