@@ -720,6 +720,65 @@
     .sankey-wrap { margin-top: 14px; padding: 12px; background: var(--soft); border-radius: 12px; }
     .sankey-svg { width: 100%; height: 360px; }
 
+    .goal-ab-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+    @media (max-width: 900px) {
+      .goal-ab-grid { grid-template-columns: 1fr; }
+    }
+    .goal-box, .ab-box {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 14px;
+      background: var(--soft);
+    }
+    .goal-input-row {
+      display: flex; gap: 8px; align-items: center; margin: 10px 0;
+    }
+    .goal-input-row input {
+      flex: 1; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: #fff;
+    }
+    .goal-result {
+      margin-top: 10px;
+      display: grid;
+      gap: 8px;
+    }
+    .goal-result-row {
+      display: grid;
+      grid-template-columns: 1fr auto auto;
+      gap: 10px;
+      padding: 10px;
+      background: #fff;
+      border-radius: 8px;
+      align-items: center;
+      border: 1px solid var(--line);
+    }
+    .goal-result-row.feasible { border-color: #10b981; background: #f0fdf4; }
+    .goal-result-row.hard { border-color: #ef4444; background: #fef2f2; }
+    .goal-delta { font-weight: 700; }
+    .goal-delta.up { color: #ef4444; }
+    .goal-delta.down { color: #10b981; }
+    .ab-slot {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px; background: #fff; border-radius: 8px; margin-bottom: 8px;
+      border: 1px solid var(--line);
+    }
+    .ab-slot.has-data { border-color: var(--accent); }
+    .ab-slot.scheme-a.has-data { border-color: #2563eb; }
+    .ab-slot.scheme-b.has-data { border-color: #f59e0b; }
+    .ab-actions { display: flex; gap: 6px; }
+    .ab-summary {
+      margin-top: 10px;
+      padding: 12px;
+      background: #fff;
+      border-radius: 8px;
+      border: 1px dashed var(--line);
+    }
+    .ab-summary .pos { color: #10b981; font-weight: 700; }
+    .ab-summary .neg { color: #ef4444; font-weight: 700; }
+
     .impact-toast {
       position: fixed;
       bottom: 24px; right: 24px;
@@ -873,6 +932,18 @@
           </div>
           <div class="card-body">
             <div id="stackedChart"></div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-header">
+            <div>
+              <h2>目标反推 &amp; A/B 方案对比</h2>
+              <p class="sub">输入年度目标毛利，系统反推「单变量需要变多少」；保存当前为 A/B 方案，叠加在走势图上对比。</p>
+            </div>
+          </div>
+          <div class="card-body">
+            <div id="goalAbPanel"></div>
           </div>
         </section>
 
@@ -1096,6 +1167,9 @@
     const state = {
       role: null,
       lastImpact: null,
+      goalTarget: 0,
+      schemeA: null,
+      schemeB: null,
       view: 'compare',
       mode: 'platform',
       month: 7,
@@ -1448,6 +1522,176 @@
         tCursor = ty1 + targetGap;
       });
       svg.innerHTML = svgContent;
+    }
+
+    function computeAnnualGpForInputs(mode, inputs) {
+      let total = 0;
+      const rH = inputs.hardwareCost / (monthDefaults.hardwareCost[state.month] || 1);
+      const rA = inputs.accidents / (monthDefaults.accidents[state.month] || 1);
+      const rM = inputs.mpir / (monthDefaults.mpir[state.month] || 1);
+      const rE = inputs.energy / (monthDefaults.energy[state.month] || 1);
+      for (let i = 0; i < months.length; i++) {
+        const inp = { ...inputs };
+        inp.hardwareCost = monthDefaults.hardwareCost[i] * rH;
+        inp.accidents = monthDefaults.accidents[i] * rA;
+        inp.mpir = monthDefaults.mpir[i] * rM;
+        inp.energy = monthDefaults.energy[i] * rE;
+        inp.vehicles = monthDefaults.vehicles[i];
+        inp.deliveries = monthDefaults.saleDeliveries[i];
+        inp.trafficCost = monthDefaults.traffic[i];
+        inp.mappingCost = monthDefaults.mapping[i];
+        const row = calculate(mode, inp);
+        total += row.grossProfit * row.count;
+      }
+      return total;
+    }
+
+    function reverseGoal(targetGp) {
+      const mode = currentMode();
+      const baseGp = computeAnnualGpForInputs(mode, state.inputs);
+      const candidates = [
+        { key: 'hardwareCost', label: '硬件成本', dir: 'down' },
+        { key: 'accidents', label: '事故次数', dir: 'down' },
+        { key: 'mpir', label: 'MPRI（云服务）', dir: 'down' },
+        { key: 'salePrice', label: '卖车单价', dir: 'up' },
+        { key: 'platformRevenue', label: '平台单车收入', dir: 'up' },
+        { key: 'leaseRevenue', label: '租赁单车收入', dir: 'up' },
+        { key: 'energy', label: '能耗', dir: 'down' },
+        { key: 'remoteRatio', label: '远驾人车比', dir: 'up' }
+      ];
+      const results = [];
+      candidates.forEach((c) => {
+        const baseVal = state.inputs[c.key];
+        if (!baseVal) return;
+        let lo = 0.1, hi = 5.0;
+        let found = null;
+        for (let iter = 0; iter < 30; iter++) {
+          const mid = (lo + hi) / 2;
+          const trial = { ...state.inputs };
+          trial[c.key] = baseVal * mid;
+          const gp = computeAnnualGpForInputs(mode, trial);
+          if (Math.abs(gp - targetGp) < Math.abs(baseGp - targetGp) * 0.001 + 1) { found = mid; break; }
+          if (gp < targetGp) {
+            if (c.dir === 'up') lo = mid; else hi = mid;
+          } else {
+            if (c.dir === 'up') hi = mid; else lo = mid;
+          }
+        }
+        const ratio = found || ((lo + hi) / 2);
+        const newVal = baseVal * ratio;
+        const trial = { ...state.inputs };
+        trial[c.key] = newVal;
+        const finalGp = computeAnnualGpForInputs(mode, trial);
+        const reachable = Math.abs(finalGp - targetGp) < Math.abs(baseGp) * 0.05 + 100;
+        results.push({
+          ...c, baseVal, newVal,
+          deltaPct: (newVal / baseVal - 1) * 100,
+          reachable, ratio
+        });
+      });
+      results.sort((a, b) => Math.abs(a.deltaPct) - Math.abs(b.deltaPct));
+      return { baseGp, targetGp, results: results.slice(0, 5) };
+    }
+
+    function renderGoalAbPanel() {
+      const wrap = document.getElementById('goalAbPanel');
+      if (!wrap) return;
+      const mode = currentMode();
+      const baseGp = computeAnnualGpForInputs(mode, state.inputs);
+      const targetGp = state.goalTarget;
+      const goal = reverseGoal(targetGp);
+      const aLabel = state.schemeA ? `${modeNames[state.schemeA.mode]} · 全年毛利 ${fmt(state.schemeA.gp, ' 元')}` : '未保存';
+      const bLabel = state.schemeB ? `${modeNames[state.schemeB.mode]} · 全年毛利 ${fmt(state.schemeB.gp, ' 元')}` : '未保存';
+      let abSummary = '';
+      if (state.schemeA && state.schemeB) {
+        const diff = state.schemeB.gp - state.schemeA.gp;
+        abSummary = `<div class="ab-summary">
+          <strong>方案 B 相对方案 A：</strong>
+          <span class="${diff >= 0 ? 'pos' : 'neg'}">${diff >= 0 ? '+' : ''}${fmt(diff, ' 元')}</span>
+          <p class="sub" style="margin-top:6px;">两方案的全年毛利曲线已叠加到下方走势图（蓝实线=A、橙虚线=B）。</p>
+        </div>`;
+      } else if (state.schemeA || state.schemeB) {
+        abSummary = `<div class="ab-summary"><p class="sub">再保存一个方案即可对比。当前已保存方案的曲线会叠加到走势图。</p></div>`;
+      }
+      wrap.innerHTML = `<div class="goal-ab-grid">
+        <div class="goal-box">
+          <h3>目标反推器</h3>
+          <p class="sub">告诉系统你想达到的全年毛利，反推每个变量需要变化多少。</p>
+          <div class="goal-input-row">
+            <input type="number" id="goalTargetInput" value="${targetGp}" placeholder="目标全年毛利（元）" step="100000" />
+            <button class="small-button" id="goalQuickZero">打平</button>
+            <button class="small-button" id="goalQuickPos">+1000万</button>
+          </div>
+          <p class="sub">当前 ${modeNames[mode]} 全年毛利 <strong>${fmt(baseGp, ' 元')}</strong> → 目标 <strong>${fmt(targetGp, ' 元')}</strong>，缺口 <strong class="${targetGp - baseGp >= 0 ? 'negative' : 'positive'}">${fmt(targetGp - baseGp, ' 元')}</strong></p>
+          <div class="goal-result">
+            ${goal.results.map((r) => {
+              const cls = !r.reachable ? 'hard' : Math.abs(r.deltaPct) <= 30 ? 'feasible' : '';
+              const arrow = r.deltaPct >= 0 ? '↑' : '↓';
+              return `<div class="goal-result-row ${cls}">
+                <div>
+                  <strong>${r.label}</strong>
+                  <div class="sub">${fmt(r.baseVal)} → ${fmt(r.newVal)}</div>
+                </div>
+                <div class="goal-delta ${r.deltaPct >= 0 ? 'up' : 'down'}">${arrow} ${Math.abs(r.deltaPct).toFixed(1)}%</div>
+                <button class="small-button" data-apply-goal="${r.key}" data-apply-val="${r.newVal}">套用</button>
+              </div>`;
+            }).join('')}
+          </div>
+          <p class="sub" style="margin-top:8px;">绿色=变化≤30%相对可达；红色=超出合理区间需要组合多变量。</p>
+        </div>
+
+        <div class="ab-box">
+          <h3>A/B 方案对比</h3>
+          <p class="sub">把当前参数保存为方案 A 或 B，叠加在走势图上同屏比较两条决策路径。</p>
+          <div class="ab-slot scheme-a ${state.schemeA ? 'has-data' : ''}">
+            <div><strong style="color:#2563eb;">方案 A</strong><div class="sub">${aLabel}</div></div>
+            <div class="ab-actions">
+              <button class="small-button" id="saveA">保存当前为 A</button>
+              ${state.schemeA ? '<button class="small-button" id="loadA">读入 A</button><button class="small-button" id="clearA">清除</button>' : ''}
+            </div>
+          </div>
+          <div class="ab-slot scheme-b ${state.schemeB ? 'has-data' : ''}">
+            <div><strong style="color:#f59e0b;">方案 B</strong><div class="sub">${bLabel}</div></div>
+            <div class="ab-actions">
+              <button class="small-button" id="saveB">保存当前为 B</button>
+              ${state.schemeB ? '<button class="small-button" id="loadB">读入 B</button><button class="small-button" id="clearB">清除</button>' : ''}
+            </div>
+          </div>
+          ${abSummary}
+        </div>
+      </div>`;
+
+      document.getElementById('goalTargetInput').addEventListener('change', (e) => {
+        state.goalTarget = Number(e.target.value);
+        render();
+      });
+      document.getElementById('goalQuickZero').addEventListener('click', () => { state.goalTarget = 0; render(); });
+      document.getElementById('goalQuickPos').addEventListener('click', () => { state.goalTarget = 10000000; render(); });
+
+      wrap.querySelectorAll('[data-apply-goal]').forEach((el) => {
+        el.addEventListener('click', () => {
+          const key = el.dataset.applyGoal;
+          const val = Number(el.dataset.applyVal);
+          const before = computeAnnualGpAll();
+          state.inputs[key] = val;
+          state.changedVar = key;
+          const after = computeAnnualGpAll();
+          showImpactToast(key, before, after);
+          render();
+        });
+      });
+
+      const snapshot = (mode) => ({ mode, inputs: JSON.parse(JSON.stringify(state.inputs)), gp: baseGp });
+      document.getElementById('saveA').addEventListener('click', () => { state.schemeA = snapshot(mode); render(); });
+      document.getElementById('saveB').addEventListener('click', () => { state.schemeB = snapshot(mode); render(); });
+      const loadA = document.getElementById('loadA');
+      if (loadA) loadA.addEventListener('click', () => { state.inputs = JSON.parse(JSON.stringify(state.schemeA.inputs)); render(); });
+      const loadB = document.getElementById('loadB');
+      if (loadB) loadB.addEventListener('click', () => { state.inputs = JSON.parse(JSON.stringify(state.schemeB.inputs)); render(); });
+      const clearA = document.getElementById('clearA');
+      if (clearA) clearA.addEventListener('click', () => { state.schemeA = null; render(); });
+      const clearB = document.getElementById('clearB');
+      if (clearB) clearB.addEventListener('click', () => { state.schemeB = null; render(); });
     }
 
     function renderHomeInsights() {
@@ -2260,6 +2504,27 @@
         });
         return { mode: m, points };
       });
+      const buildSchemePoints = (scheme) => {
+        if (!scheme) return null;
+        const inp = scheme.inputs;
+        const rH = inp.hardwareCost / (monthDefaults.hardwareCost[state.month] || 1);
+        const rA = inp.accidents / (monthDefaults.accidents[state.month] || 1);
+        return months.map((_, i) => {
+          const monthInp = { ...inp };
+          monthInp.hardwareCost = monthDefaults.hardwareCost[i] * rH;
+          monthInp.accidents = monthDefaults.accidents[i] * rA;
+          monthInp.vehicles = monthDefaults.vehicles[i];
+          monthInp.deliveries = monthDefaults.saleDeliveries[i];
+          monthInp.mpir = monthDefaults.mpir[i];
+          monthInp.energy = monthDefaults.energy[i];
+          monthInp.trafficCost = monthDefaults.traffic[i];
+          monthInp.mappingCost = monthDefaults.mapping[i];
+          const row = calculate(scheme.mode, monthInp);
+          return row.grossProfit * row.count;
+        });
+      };
+      const schemeAPoints = buildSchemePoints(state.schemeA);
+      const schemeBPoints = buildSchemePoints(state.schemeB);
       const annualByMode = ['platform', 'lease', 'sale'].map((m) => {
         const rows = months.map((_, index) => calculate(m, monthlyInput(index)));
         const total = rows.reduce((acc, row) => {
@@ -2328,19 +2593,33 @@
           </div>
           <div class="line-chart-wrap" style="margin-top: 12px;">
             <svg class="line-chart-svg" viewBox="0 0 ${chart.w} ${chart.h}" role="img" aria-label="各模式月度总毛利走势">
-              <line x1="${chart.left}" y1="${yFor(0)}" x2="${chart.w - chart.right}" y2="${yFor(0)}" stroke="#94a3b8" stroke-width="1" />
+              <line x1="${chart.left}" y1="${yFor(0)}" x2="${chart.w - chart.right}" y2="${yFor(0)}" stroke="#dc2626" stroke-width="1.5" stroke-dasharray="6 4" />
+              <text x="${chart.w - chart.right - 4}" y="${yFor(0) - 4}" text-anchor="end" font-size="11" font-weight="700" fill="#dc2626">盈亏平衡线（毛利=0）</text>
               ${months.map((m, index) => `<text x="${xFor(index)}" y="${chart.h - 12}" text-anchor="middle" font-size="11" fill="#64748b">${m.replace('2026年', '')}</text>`).join('')}
               ${[0, 7].map((index) => `<line x1="${xFor(index)}" y1="${chart.top}" x2="${xFor(index)}" y2="${chart.h - chart.bottom}" stroke="#e2e8f0" stroke-width="1" />`).join('')}
+              ${state.goalTarget && state.goalTarget !== 0 ? (() => {
+                const monthlyTarget = state.goalTarget / months.length;
+                if (monthlyTarget < trendHigh && monthlyTarget > trendMin) {
+                  return `<line x1="${chart.left}" y1="${yFor(monthlyTarget)}" x2="${chart.w - chart.right}" y2="${yFor(monthlyTarget)}" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="3 3" />
+                  <text x="${chart.left + 4}" y="${yFor(monthlyTarget) - 4}" font-size="11" font-weight="700" fill="#16a34a">月度目标线（${fmt(monthlyTarget, ' 元')}）</text>`;
+                }
+                return '';
+              })() : ''}
               ${trendByMode.map(({ mode, points }) => {
                 const dPath = points.map((value, index) => `${index === 0 ? 'M' : 'L'} ${xFor(index).toFixed(1)} ${yFor(value).toFixed(1)}`).join(' ');
-                return `<path d="${dPath}" fill="none" stroke="${lineColors[mode]}" stroke-width="${mode === 'sale' ? 3 : 2}" />`;
+                return `<path d="${dPath}" fill="none" stroke="${lineColors[mode]}" stroke-width="${mode === 'sale' ? 3 : 2}" opacity="${state.schemeA || state.schemeB ? 0.35 : 1}" />`;
               }).join('')}
-              ${trendByMode.map(({ mode, points }) => points.map((value, index) => `<circle class="line-chart-point" data-annual-month="${index}" cx="${xFor(index)}" cy="${yFor(value)}" r="${index === selectedMonth ? 5 : 3.5}" fill="${lineColors[mode]}" stroke="white" stroke-width="1.5" />`).join('')).join('')}
+              ${schemeAPoints ? `<path d="${schemeAPoints.map((v, i) => `${i === 0 ? 'M' : 'L'} ${xFor(i).toFixed(1)} ${yFor(v).toFixed(1)}`).join(' ')}" fill="none" stroke="#2563eb" stroke-width="3.5" />` : ''}
+              ${schemeBPoints ? `<path d="${schemeBPoints.map((v, i) => `${i === 0 ? 'M' : 'L'} ${xFor(i).toFixed(1)} ${yFor(v).toFixed(1)}`).join(' ')}" fill="none" stroke="#f59e0b" stroke-width="3.5" stroke-dasharray="6 4" />` : ''}
+              ${trendByMode.map(({ mode, points }) => points.map((value, index) => `<circle class="line-chart-point" data-annual-month="${index}" cx="${xFor(index)}" cy="${yFor(value)}" r="${index === selectedMonth ? 5 : 3.5}" fill="${lineColors[mode]}" stroke="white" stroke-width="1.5" opacity="${state.schemeA || state.schemeB ? 0.5 : 1}" />`).join('')).join('')}
               <line x1="${xFor(selectedMonth)}" y1="${chart.top}" x2="${xFor(selectedMonth)}" y2="${chart.h - chart.bottom}" stroke="#334155" stroke-width="1.5" stroke-dasharray="4 4" />
               <text x="${xFor(selectedMonth)}" y="${chart.top + 12}" text-anchor="middle" font-size="12" fill="#334155">${months[selectedMonth].replace('2026年', '')}</text>
             </svg>
             <div class="line-chart-legend">
               ${trendByMode.map(({ mode }) => `<span><i class="legend-dot" style="background:${lineColors[mode]}"></i>${modeNames[mode]}</span>`).join('')}
+              ${state.schemeA ? '<span><i class="legend-dot" style="background:#2563eb"></i>方案 A</span>' : ''}
+              ${state.schemeB ? '<span><i class="legend-dot" style="background:#f59e0b;border-radius:0;width:14px;height:3px;"></i>方案 B</span>' : ''}
+              <span><i class="legend-dot" style="background:#dc2626;border-radius:0;width:14px;height:3px;"></i>盈亏平衡</span>
             </div>
           </div>
           <div class="month-detail" style="margin-top: 12px;">
@@ -2495,6 +2774,7 @@
       renderHomeInsights();
       renderBulletChart();
       renderStackedChart();
+      renderGoalAbPanel();
       renderSankey();
       renderModeCards();
       renderDimensionCompare();
