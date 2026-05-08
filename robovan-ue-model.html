@@ -2139,8 +2139,6 @@
         const d = calculate(mode);
         return { mode, data: d };
       });
-      const best = [...rows].sort((a, b) => b.data.grossProfit - a.data.grossProfit)[0];
-      const worst = [...rows].sort((a, b) => a.data.grossProfit - b.data.grossProfit)[0];
       const active = rows.find((x) => x.mode === currentMode()) || rows[0];
       const d = active.data;
       const factors = [
@@ -2155,6 +2153,19 @@
         : active.mode === 'lease'
           ? '租赁模式优先看折旧口径和月度运营成本，判断租赁收入是否能覆盖折旧与运营。'
           : '卖车模式优先看售价、硬件成本和预计负债，避免一次性收入掩盖后续责任成本。';
+      const baselineData = calculate(active.mode, state.baseline || state.inputs);
+      const currentGp = scopedValue(d, 'grossProfit');
+      const baselineGp = state.scope === 'total' ? baselineData.grossProfit * baselineData.count : baselineData.grossProfit;
+      const gpDelta = currentGp - baselineGp;
+      const isScenario = hasInputDiff(state.inputs, state.baseline || state.inputs);
+      const pressure = factors[0];
+      const nextAction = pressure[0] === '资产成本'
+        ? '建议优先看硬件成本、折旧/IRR 或预计负债。'
+        : pressure[0] === '运营变动成本'
+          ? '建议优先看事故次数、MPRI、远驾人车比和维修。'
+          : pressure[0] === '运营固定成本'
+            ? '建议优先看仓储、地勤人车比和路线部署。'
+            : `建议下钻“${pressure[0]}”查看上游变量。`;
       document.getElementById('homeInsights').innerHTML = `
         <div class="insight-grid">
           <div class="insight-card primary">
@@ -2163,15 +2174,16 @@
             <p class="sub">${modeAdvice}</p>
           </div>
           <div class="insight-card">
-            <div class="kpi-label">三模式判断</div>
-            <div class="kpi-value">${modeNames[best.mode]} 最优</div>
-            <p class="sub">当前最弱：${modeNames[worst.mode]}，单车毛利 ${fmt(worst.data.grossProfit, ' 元')}。切换关注指标可重新判断。</p>
+            <div class="kpi-label">本次场景结论</div>
+            <div class="kpi-value ${gpDelta >= 0 ? 'positive' : 'negative'}">${gpDelta >= 0 ? '+' : ''}${fmt(gpDelta, ' 元')}</div>
+            <p class="sub">${isScenario ? `相对表格基线，当前${state.scope === 'total' ? '总盘子' : '单车'}毛利变化如上。最近动作：${state.lastActionLabel}。` : '当前仍是表格基线。你可以先套用一个预设或拖动滑杆，看经营结果如何变化。'}</p>
           </div>
           <div class="insight-card">
             <div class="kpi-label">优先下钻</div>
             <div class="impact-list">
               ${factors.map(([name, value, reason]) => `<div class="impact-item"><span><strong>${name}</strong><br><span class="sub">${reason}</span></span><strong>${fmt(value, ' 元')}</strong></div>`).join('')}
             </div>
+            <p class="sub" style="margin-top:8px;">${nextAction}</p>
           </div>
         </div>`;
     }
