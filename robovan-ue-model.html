@@ -254,17 +254,6 @@
     .preset-card.hardware .preset-dot { background: #6366f1; }
     .preset-card.pessimistic .preset-dot { background: #ef4444; }
 
-    .role-filter-bar {
-      display: flex; justify-content: space-between; align-items: center;
-      padding: 8px 10px; margin-bottom: 8px;
-      background: var(--accent-soft, #eff6ff); border-radius: 8px;
-      font-size: 12px;
-    }
-    .role-filter-bar button {
-      background: var(--accent); color: #fff; border: none; border-radius: 6px;
-      padding: 4px 10px; font-size: 12px; cursor: pointer;
-    }
-    .role-filter-bar button.off { background: #fff; color: var(--accent); border: 1px solid var(--accent); }
     .tree-toolbar {
       display: flex;
       flex-wrap: wrap;
@@ -661,47 +650,6 @@
       gap: 10px;
     }
 
-    .role-grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 12px;
-    }
-    .role-card {
-      border: 1px solid var(--line);
-      border-radius: 14px;
-      padding: 14px;
-      cursor: pointer;
-      background: var(--soft);
-      transition: all 0.2s;
-      position: relative;
-    }
-    .role-card:hover { border-color: var(--accent); transform: translateY(-2px); }
-    .role-card.active {
-      border-color: var(--accent);
-      background: linear-gradient(135deg, #eef4ff 0%, #fff 100%);
-      box-shadow: 0 6px 18px rgba(37, 99, 235, 0.15);
-    }
-    .role-icon {
-      width: 36px; height: 36px;
-      border-radius: 10px;
-      background: var(--accent);
-      color: #fff;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 18px; font-weight: 700;
-      margin-bottom: 10px;
-    }
-    .role-card h4 { font-size: 15px; margin-bottom: 4px; }
-    .role-card .role-vars {
-      display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px;
-    }
-    .role-card .role-tag {
-      font-size: 11px; padding: 2px 8px; border-radius: 6px;
-      background: #fff; border: 1px solid var(--line); color: var(--muted);
-    }
-    .role-card.active .role-tag {
-      background: var(--accent); color: #fff; border-color: var(--accent);
-    }
-
     .bullet-chart { margin-top: 12px; }
     .bullet-row {
       display: grid;
@@ -970,23 +918,6 @@
     .toolbar2 .tb-spacer { flex: 1; }
     .toolbar2 .tb-meta { font-size: 12px; color: var(--muted); }
 
-    .role-strip {
-      display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
-      padding: 10px 14px; background: #fff;
-      border-radius: 12px; border: 1px solid var(--line);
-      margin-bottom: 14px;
-    }
-    .role-strip .rs-label { font-size: 12px; color: var(--muted); margin-right: 4px; font-weight: 600; }
-    .role-strip .rs-chip {
-      padding: 5px 12px; border-radius: 999px; border: 1px solid var(--line);
-      background: var(--soft); cursor: pointer; font-size: 13px;
-      display: inline-flex; align-items: center; gap: 6px;
-    }
-    .role-strip .rs-chip:hover { border-color: var(--accent); }
-    .role-strip .rs-chip.active { background: var(--accent); color: #fff; border-color: var(--accent); }
-    .role-strip .rs-chip .rs-icon { width: 18px; height: 18px; border-radius: 4px; background: var(--accent); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; }
-    .role-strip .rs-chip.active .rs-icon { background: rgba(255,255,255,0.25); }
-
     body.params-hidden .left-rail { display: none; }
     body.params-hidden .workbench { grid-template-columns: minmax(0, 1fr); }
     body.params-hidden .workbench.tree-mode { grid-template-columns: minmax(0, 1fr) 380px; }
@@ -995,7 +926,6 @@
     [data-tab].tab-visible { display: block; }
 
     @media (max-width: 1200px) {
-      .role-grid { grid-template-columns: repeat(2, 1fr); }
       .workbench { grid-template-columns: 1fr; }
       .workbench.annual-mode { grid-template-columns: 1fr; }
       .annual-layout { grid-template-columns: 1fr; }
@@ -1074,7 +1004,6 @@
       <span class="tb-meta" id="toolbarMeta"></span>
     </div>
 
-    <div class="role-strip" id="roleStrip"></div>
 
     <section class="workbench" id="workspaceSection">
       <aside class="left-rail card" id="variableCard">
@@ -1400,8 +1329,6 @@
     const state = {
       tab: 'overview',
       paramsHidden: false,
-      role: null,
-      roleFilter: true,
       lastImpact: null,
       goalTarget: 0,
       schemeA: null,
@@ -1605,27 +1532,6 @@
       document.getElementById('scopeSelect').value = state.scope;
       document.getElementById('focusSelect').value = state.focus;
       document.getElementById('currentMonthPill').textContent = `${months[state.month]} · ${state.scope === 'unit' ? '单车口径' : '总盘子口径'}`;
-    }
-
-    const roles = [
-      { id: 'ops', icon: '调', name: '司机调度/运营', desc: '决定每月跑多少车、投多少远驾安全员', vars: ['vehicles', 'remoteRatio', 'energy'] },
-      { id: 'maint', icon: '修', name: '车辆运维', desc: '直接影响事故率、维修费、MPRI', vars: ['accidents', 'mpir', 'repair'] },
-      { id: 'biz', icon: '商', name: '商务/销售', desc: '影响订单收入、卖车单价、交付节奏', vars: ['unitRevenue', 'salePrice', 'deliveries'] },
-      { id: 'tech', icon: '技', name: '产品/技术', desc: '影响硬件成本、云服务、地图建图费', vars: ['hardwareCost', 'cloudCost', 'mappingCost'] }
-    ];
-
-    function renderRoleAnchor() {
-      const strip = document.getElementById('roleStrip');
-      if (!strip) return;
-      strip.innerHTML = `<span class="rs-label">我的岗位 ›</span>
-        ${roles.map((r) => `<span class="rs-chip ${state.role === r.id ? 'active' : ''}" data-role="${r.id}" title="${r.desc}"><span class="rs-icon">${r.icon}</span>${r.name}</span>`).join('')}
-        ${state.role ? `<span class="rs-label" style="margin-left:6px;">你的杠杆：${roles.find((r) => r.id === state.role).vars.map((v) => variableLabels[v] || v).join(' / ')}</span>` : '<span class="rs-label" style="margin-left:6px;color:var(--muted);">点击查看你能影响的变量</span>'}`;
-      strip.querySelectorAll('[data-role]').forEach((el) => {
-        el.addEventListener('click', () => {
-          state.role = state.role === el.dataset.role ? null : el.dataset.role;
-          render();
-        });
-      });
     }
 
     function renderToolbar() {
@@ -2380,15 +2286,7 @@
         presetDeltas[p.id] = computeAnnualGpForInputs(mode, inp) - baseAnnualGp;
       });
 
-      const role = roles.find((r) => r.id === state.role);
-      const filterOn = role && state.roleFilter;
-
       document.getElementById('variablePanel').innerHTML = `
-        ${role ? `<div class="role-filter-bar">
-          <span>当前角色：<strong>${role.name}</strong>${filterOn ? '，仅显示你的杠杆' : '，显示全部变量'}</span>
-          <button class="${filterOn ? '' : 'off'}" id="roleFilterToggle">${filterOn ? '显示全部 ›' : '只看我的杠杆 ›'}</button>
-        </div>` : ''}
-
         <h3 style="font-size:12px;color:var(--muted);margin-bottom:8px;">📋 经营场景预设</h3>
         <div class="preset-grid">
           ${presets.map((p) => {
@@ -2426,24 +2324,14 @@
         </div>
 
         <h3 style="font-size:12px;color:var(--muted);margin:14px 0 8px;">🎚 变量微调</h3>
-        ${variableGroups.map(([group, vars]) => {
-          const filtered = filterOn ? vars.filter(([key]) => role.vars.includes(key)) : vars;
-          if (filtered.length === 0) return '';
-          return `<div class="variable-group">
-            <h3>${group}</h3>
-            ${filtered.map(([key, label, min, max, step, unit]) => {
-              const isRoleVar = role && role.vars.includes(key);
-              return `<div class="var-card ${state.changedVar === key ? 'active' : ''}" data-var="${key}" style="${isRoleVar ? 'border-color: var(--accent); box-shadow: 0 2px 8px rgba(37,99,235,0.12);' : ''}">
-                <div class="var-top"><span>${label} ${isRoleVar ? '<span class="pill active" style="margin-left:4px;">你的杠杆</span>' : ''}</span><span class="var-value">${fmt(state.inputs[key])}${unit && !['元/月', '元'].includes(unit) ? unit : ''}</span></div>
-                <div class="var-impact">${(impactLabels[key] || ['相关指标']).map((x) => `<span class="pill">${x}</span>`).join('')}</div>
-                <input type="range" min="${min}" max="${max}" step="${step}" value="${state.inputs[key]}" data-range="${key}" />
-              </div>`;
-            }).join('')}
-          </div>`;
-        }).join('')}`;
-
-      const filterBtn = document.getElementById('roleFilterToggle');
-      if (filterBtn) filterBtn.addEventListener('click', () => { state.roleFilter = !state.roleFilter; render(); });
+        ${variableGroups.map(([group, vars]) => `<div class="variable-group">
+          <h3>${group}</h3>
+          ${vars.map(([key, label, min, max, step, unit]) => `<div class="var-card ${state.changedVar === key ? 'active' : ''}" data-var="${key}">
+            <div class="var-top"><span>${label}</span><span class="var-value">${fmt(state.inputs[key])}${unit && !['元/月', '元'].includes(unit) ? unit : ''}</span></div>
+            <div class="var-impact">${(impactLabels[key] || ['相关指标']).map((x) => `<span class="pill">${x}</span>`).join('')}</div>
+            <input type="range" min="${min}" max="${max}" step="${step}" value="${state.inputs[key]}" data-range="${key}" />
+          </div>`).join('')}
+        </div>`).join('')}`;
 
       document.querySelectorAll('[data-preset]').forEach((el) => {
         el.addEventListener('click', () => {
@@ -3354,7 +3242,6 @@
       renderControls();
       renderToolbar();
       applyTabVisibility();
-      renderRoleAnchor();
       renderHomeInsights();
       renderBulletChart();
       renderStackedChart();
