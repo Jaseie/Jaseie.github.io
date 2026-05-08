@@ -717,6 +717,51 @@
     }
     .stacked-legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 4px; vertical-align: middle; }
 
+    .monthly-stack { display: flex; gap: 6px; align-items: flex-end; height: 240px; padding: 10px 6px 28px; position: relative; }
+    .ms-col {
+      flex: 1; display: flex; flex-direction: column-reverse; position: relative;
+      cursor: pointer;
+    }
+    .ms-col-label {
+      position: absolute; bottom: -22px; left: 0; right: 0; text-align: center;
+      font-size: 11px; color: var(--muted);
+    }
+    .ms-seg {
+      width: 100%; transition: opacity 0.2s;
+    }
+    .ms-seg.asset { background: #6366f1; }
+    .ms-seg.variable { background: #f59e0b; }
+    .ms-seg.fixed { background: #14b8a6; }
+    .ms-col:hover .ms-seg { opacity: 0.85; }
+    .ms-col.active .ms-seg { outline: 1px solid #2563eb; outline-offset: -1px; }
+    .ms-tooltip {
+      position: absolute;
+      background: #0f172a; color: #fff;
+      padding: 8px 10px; border-radius: 8px;
+      font-size: 11px; line-height: 1.5;
+      pointer-events: none;
+      transform: translate(-50%, -100%);
+      white-space: nowrap;
+      z-index: 5;
+    }
+
+    .expert-toggle {
+      width: 100%; padding: 10px;
+      border: 1px dashed var(--line);
+      border-radius: 10px;
+      background: #fff; cursor: pointer; font-weight: 700;
+      color: var(--accent); text-align: left;
+    }
+    .expert-toggle:hover { background: var(--soft); }
+    .expert-grid { display: flex; flex-direction: column; gap: 14px; margin-top: 12px; }
+    .expert-var { background: var(--soft); border: 1px solid var(--line); border-radius: 10px; padding: 10px; }
+    .expert-var h4 { font-size: 13px; margin-bottom: 8px; }
+    .expert-cells { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+    .expert-cells label { font-size: 10px; color: var(--muted); display: flex; flex-direction: column; gap: 2px; }
+    .expert-cells input { padding: 4px; font-size: 11px; border: 1px solid var(--line); border-radius: 4px; background: #fff; width: 100%; box-sizing: border-box; }
+    .expert-cells input.modified { border-color: var(--accent); background: #eff6ff; }
+    .expert-reset { background: transparent; border: none; color: var(--muted); font-size: 11px; cursor: pointer; text-decoration: underline; }
+
     .tornado-chart { display: grid; gap: 6px; margin-top: 10px; }
     .tornado-row {
       display: grid;
@@ -921,6 +966,10 @@
             <h3>业务动作与变量</h3>
             <div id="variablePanel" style="margin-top: 10px;"></div>
           </div>
+          <div class="rail-section">
+            <h3>专家模式</h3>
+            <div id="expertPanel" style="margin-top: 10px;"></div>
+          </div>
         </div>
       </aside>
 
@@ -985,6 +1034,19 @@
           </div>
           <div class="card-body">
             <div id="goalAbPanel"></div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-header">
+            <div>
+              <h2>月度成本结构堆叠图</h2>
+              <p class="sub">看全年 12 个月里，每个月的资产/变动/固定成本是怎么演变的；柱顶折线是收入。</p>
+            </div>
+            <span class="pill" id="monthlyStackPill"></span>
+          </div>
+          <div class="card-body">
+            <div id="monthlyStackChart"></div>
           </div>
         </section>
 
@@ -1121,7 +1183,7 @@
 
   <script>
     const months = ['2026年5月', '2026年6月', '2026年7月', '2026年8月', '2026年9月', '2026年10月', '2026年11月', '2026年12月'];
-    const monthDefaults = {
+    const _monthRawDefaults = {
       vehicles: [100, 200, 300, 400, 500, 800, 1000, 2300],
       saleDeliveries: [100, 50, 50, 50, 50, 500, 700, 800],
       hardwareCost: [103165, 103165, 78535, 78535, 78535, 65000, 65000, 65000],
@@ -1131,6 +1193,22 @@
       traffic: [240, 240, 240, 240, 240, 100, 100, 100],
       mapping: [621, 500, 150, 150, 150, 50, 50, 50]
     };
+    const monthDefaults = new Proxy(_monthRawDefaults, {
+      get(target, key) {
+        const arr = target[key];
+        if (!Array.isArray(arr)) return arr;
+        return new Proxy(arr, {
+          get(a, idx) {
+            const i = Number(idx);
+            if (Number.isInteger(i) && i >= 0 && i < a.length) {
+              const ov = state && state.monthOverrides && state.monthOverrides[key];
+              if (ov && ov[i] !== undefined && ov[i] !== null && ov[i] !== '' && !isNaN(ov[i])) return Number(ov[i]);
+            }
+            return a[idx];
+          }
+        });
+      }
+    });
     const modeNames = { platform: '平台模式', lease: '租赁模式', sale: '卖车模式' };
     const modeShort = { platform: '平台', lease: '租赁', sale: '卖车' };
     const metrics = [
@@ -1224,6 +1302,8 @@
       goalTarget: 0,
       schemeA: null,
       schemeB: null,
+      expertOpen: false,
+      monthOverrides: {},
       view: 'compare',
       mode: 'platform',
       month: 7,
@@ -1654,6 +1734,144 @@
         tCursor = ty1 + targetGap;
       });
       svg.innerHTML = svgContent;
+    }
+
+    function md(key, i) {
+      const ov = state.monthOverrides[key];
+      if (ov && ov[i] !== undefined && ov[i] !== null && ov[i] !== '' && !isNaN(ov[i])) return Number(ov[i]);
+      return monthDefaults[key][i];
+    }
+
+    function renderMonthlyStack() {
+      const target = document.getElementById('monthlyStackChart');
+      if (!target) return;
+      const mode = currentMode();
+      const pill = document.getElementById('monthlyStackPill');
+      if (pill) pill.textContent = `${modeNames[mode]} · 总盘子`;
+      const rows = months.map((label, i) => {
+        const inp = { ...state.inputs };
+        const rH = state.inputs.hardwareCost / (monthDefaults.hardwareCost[state.month] || 1);
+        const rA = state.inputs.accidents / (monthDefaults.accidents[state.month] || 1);
+        inp.hardwareCost = md('hardwareCost', i) * rH;
+        inp.accidents = md('accidents', i) * rA;
+        inp.vehicles = md('vehicles', i);
+        inp.deliveries = md('saleDeliveries', i);
+        inp.mpir = md('mpir', i);
+        inp.energy = md('energy', i);
+        inp.trafficCost = md('traffic', i);
+        inp.mappingCost = md('mapping', i);
+        const d = calculate(mode, inp);
+        return {
+          label,
+          asset: d.assetCost * d.count,
+          variable: d.variableCost * d.count,
+          fixed: d.fixedCost * d.count,
+          revenue: d.revenue * d.count,
+          gp: d.grossProfit * d.count,
+          count: d.count
+        };
+      });
+      const totalCostMax = Math.max(...rows.map((r) => r.asset + r.variable + r.fixed), 1);
+      const revMax = Math.max(...rows.map((r) => r.revenue), totalCostMax);
+      const scale = 200 / Math.max(totalCostMax, revMax);
+      target.innerHTML = `<div class="monthly-stack" id="monthlyStackBody">
+        ${rows.map((r, i) => {
+          const aH = r.asset * scale;
+          const vH = r.variable * scale;
+          const fH = r.fixed * scale;
+          const revH = r.revenue * scale;
+          return `<div class="ms-col ${i === state.annualSelectedMonth ? 'active' : ''}" data-ms-month="${i}">
+            <div class="ms-col-label">${r.label.replace('2026年', '')}</div>
+            <div class="ms-seg fixed" style="height:${fH}px;" title="固定 ${fmt(r.fixed, ' 元')}"></div>
+            <div class="ms-seg variable" style="height:${vH}px;" title="变动 ${fmt(r.variable, ' 元')}"></div>
+            <div class="ms-seg asset" style="height:${aH}px;" title="资产 ${fmt(r.asset, ' 元')}"></div>
+            <div style="position:absolute; left:50%; transform:translateX(-50%); bottom:${revH}px; width:14px; height:14px; border-radius:50%; background:#fff; border:2px solid #2563eb; pointer-events:none;"></div>
+          </div>`;
+        }).join('')}
+        ${(() => {
+          const w = 100 / rows.length;
+          const points = rows.map((r, i) => {
+            const x = (i + 0.5) * w;
+            const y = 100 - (r.revenue * scale) / 240 * 100;
+            return `${x},${y}`;
+          }).join(' ');
+          return `<svg style="position:absolute; left:6px; right:6px; top:10px; bottom:28px; width:calc(100% - 12px); height:calc(100% - 38px); pointer-events:none;" viewBox="0 0 100 100" preserveAspectRatio="none"><polyline fill="none" stroke="#2563eb" stroke-width="0.4" points="${points}" /></svg>`;
+        })()}
+      </div>
+      <div class="stacked-legend" style="margin-top:14px;">
+        <span><i style="background:#6366f1"></i>资产成本</span>
+        <span><i style="background:#f59e0b"></i>运营变动</span>
+        <span><i style="background:#14b8a6"></i>运营固定</span>
+        <span><i style="background:#fff;border:2px solid #2563eb;border-radius:50%;width:10px;height:10px;"></i>总收入（折线）</span>
+      </div>`;
+      target.querySelectorAll('[data-ms-month]').forEach((el) => {
+        el.addEventListener('click', () => {
+          state.annualSelectedMonth = Number(el.dataset.msMonth);
+          render();
+        });
+      });
+    }
+
+    function renderExpertPanel() {
+      const wrap = document.getElementById('expertPanel');
+      if (!wrap) return;
+      if (!state.expertOpen) {
+        wrap.innerHTML = `<button class="expert-toggle" id="expertToggle">⚙️ 展开专家模式 · 按月细颗粒</button>
+          <p class="sub" style="margin-top:8px;">普通用户无需打开。专业用户可按月独立设置规模、硬件、事故、能耗等参数，覆盖默认基线。</p>`;
+        document.getElementById('expertToggle').addEventListener('click', () => { state.expertOpen = true; render(); });
+        return;
+      }
+      const fields = [
+        { key: 'vehicles', label: '运营车辆数（辆）', step: 100 },
+        { key: 'saleDeliveries', label: '卖车交付（辆）', step: 50 },
+        { key: 'hardwareCost', label: '硬件成本（元）', step: 1000 },
+        { key: 'accidents', label: '百车月事故次数', step: 1 },
+        { key: 'mpir', label: 'MPRI', step: 1 },
+        { key: 'energy', label: '能耗（度/公里）', step: 0.01 },
+        { key: 'traffic', label: '流量费（元/月）', step: 10 },
+        { key: 'mapping', label: '采图建图（元/月）', step: 10 }
+      ];
+      wrap.innerHTML = `<button class="expert-toggle" id="expertToggle">⚙️ 收起专家模式</button>
+        <div class="expert-grid">
+          ${fields.map((f) => {
+            return `<div class="expert-var">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                <h4 style="margin:0;">${f.label}</h4>
+                <button class="expert-reset" data-expert-reset="${f.key}">恢复默认</button>
+              </div>
+              <div class="expert-cells">
+                ${months.map((m, i) => {
+                  const ov = state.monthOverrides[f.key];
+                  const isMod = ov && ov[i] !== undefined && ov[i] !== null && ov[i] !== '';
+                  const val = isMod ? ov[i] : _monthRawDefaults[f.key][i];
+                  return `<label>${m.replace('2026年', '')}<input type="number" step="${f.step}" value="${val}" data-expert-key="${f.key}" data-expert-month="${i}" class="${isMod ? 'modified' : ''}" /></label>`;
+                }).join('')}
+              </div>
+            </div>`;
+          }).join('')}
+        </div>
+        <p class="sub" style="margin-top:10px;">蓝色背景=已被覆盖。点「恢复默认」清除该变量的所有月度覆盖。修改会立即重算敏感性、月度堆叠、走势图。</p>`;
+      document.getElementById('expertToggle').addEventListener('click', () => { state.expertOpen = false; render(); });
+      wrap.querySelectorAll('[data-expert-key]').forEach((el) => {
+        el.addEventListener('change', () => {
+          const key = el.dataset.expertKey;
+          const month = Number(el.dataset.expertMonth);
+          if (!state.monthOverrides[key]) state.monthOverrides[key] = {};
+          const v = el.value;
+          if (v === '' || isNaN(Number(v))) {
+            delete state.monthOverrides[key][month];
+          } else {
+            state.monthOverrides[key][month] = Number(v);
+          }
+          render();
+        });
+      });
+      wrap.querySelectorAll('[data-expert-reset]').forEach((el) => {
+        el.addEventListener('click', () => {
+          delete state.monthOverrides[el.dataset.expertReset];
+          render();
+        });
+      });
     }
 
     function computeAnnualGpForInputs(mode, inputs) {
@@ -2908,7 +3126,9 @@
       renderStackedChart();
       renderGoalAbPanel();
       renderTornado();
+      renderMonthlyStack();
       renderSankey();
+      renderExpertPanel();
       renderModeCards();
       renderDimensionCompare();
       renderVariables();
