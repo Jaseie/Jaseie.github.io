@@ -122,7 +122,7 @@
     }
 
     .tree {
-      min-width: 860px;
+      min-width: 1180px;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -140,6 +140,9 @@
     .row.two { grid-template-columns: repeat(2, 180px); }
     .row.three { grid-template-columns: repeat(3, 180px); }
     .row.five { grid-template-columns: repeat(5, 150px); }
+    .row.variable { grid-template-columns: repeat(5, 150px); }
+    .row.fixed { grid-template-columns: repeat(3, 170px); }
+    .row.asset { grid-template-columns: repeat(3, 170px); }
 
     .node {
       border: 1px solid var(--line);
@@ -159,6 +162,10 @@
     .node.changed {
       border-color: var(--warning);
       background: var(--warning-soft);
+    }
+
+    .node.leaf {
+      min-height: 84px;
     }
 
     .node-title {
@@ -211,6 +218,20 @@
       border: 1px solid var(--line);
       border-radius: 14px;
       background: var(--panel-soft);
+    }
+
+    .cost-box + .cost-box {
+      margin-top: 12px;
+    }
+
+    .section-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
     }
 
     .side {
@@ -303,7 +324,7 @@
       <div class="tabs">
         <button data-step="overview" class="active">1 默认态</button>
         <button data-step="expanded">2 展开成本</button>
-        <button data-step="selected">3 点击风险赔偿</button>
+        <button data-step="selected">3 点击成本项</button>
         <button data-step="changed">4 调参联动</button>
       </div>
     </section>
@@ -390,7 +411,111 @@
     const state = {
       step: 'overview',
       mode: 'platform',
-      accidentCount: 23
+      accidentCount: 23,
+      selectedMetric: 'risk'
+    };
+
+    const metricCopy = {
+      revenue: {
+        name: '单车收入',
+        formula: '平台/租赁为月度单车收入；卖车为一次性单车售价',
+        relation: '收入增加会直接提高单车毛利，不经过成本链路。'
+      },
+      asset: {
+        name: '资产成本',
+        formula: '平台为硬件成本 × (1+IRR) / 5 / 12；租赁为硬件成本 × 折旧残值率 / 折旧年限 / 12；卖车为硬件成本 + 预计负债/累计运营孰高口径',
+        relation: '资产成本进入单车成本，是三种商业模式差异最大的来源之一。'
+      },
+      hardware: {
+        name: '硬件成本',
+        formula: '每台车硬件 BOM/采购成本，按不同月份成本口径取值',
+        relation: '硬件成本越低，平台/租赁摊销成本越低；卖车模式单车成本直接下降。'
+      },
+      irr: {
+        name: 'IRR/折旧摊销',
+        formula: '平台使用 IRR 摊销；租赁使用折旧残值率和折旧年限摊销',
+        relation: '摊销参数影响资产成本，并进一步影响单车成本和毛利。'
+      },
+      provision: {
+        name: '预计负债',
+        formula: '单车售价 × 预计负债比例，并与累计运营成本做孰高判断',
+        relation: '卖车模式下预计负债会影响确认成本，可能压低报表毛利。'
+      },
+      variable: {
+        name: '运营变动成本',
+        formula: '充电 + 远驾 + 客服 + 保险 + 风险赔偿 + 流量 + 云服务 + 补充运力 + 维修 + 采图制图',
+        relation: '运营变动成本随事故、人效、MPRI、故障次数、能耗等业务动作变化。'
+      },
+      charging: {
+        name: '充电',
+        formula: '空跑里程 × 能耗 × 电费单价 × 30',
+        relation: '能耗、空跑里程或电价上升，会推高充电成本和单车成本。'
+      },
+      remote: {
+        name: '远驾安全员',
+        formula: '远驾安全员月成本 / 远驾人车比 × (1+排班冗余)',
+        relation: '人车比提升会降低单车远驾成本，改善单车毛利。'
+      },
+      cs: {
+        name: '客服',
+        formula: '客服成本 / 客服人车比 × (1+排班冗余)',
+        relation: '客服人效影响单车运营变动成本。'
+      },
+      insurance: {
+        name: '保险',
+        formula: '单车月度保费输入值',
+        relation: '保险进入运营变动成本，影响单车成本。'
+      },
+      risk: {
+        name: '风险赔偿',
+        formula: '百台车月事故次数 × 单次赔偿金额 × 风险概率 / 100',
+        relation: '风险赔偿上升，会推高运营变动成本，进而推高单车成本，压低单车毛利。'
+      },
+      traffic: {
+        name: '流量',
+        formula: '月度流量费参数',
+        relation: '流量成本与车辆在线、数据传输和套餐价格相关。'
+      },
+      cloud: {
+        name: '云服务',
+        formula: '日均单量 × 工单时长 × 带宽消耗 × 出口流量单价 × 30 + 拉流带宽分摊',
+        relation: 'MPRI、工单时长、带宽和出口流量共同影响云服务成本。'
+      },
+      backup: {
+        name: '补充运力',
+        formula: '补充运力单价 × 接单里程 × 百台车月事故次数 / 100',
+        relation: '事故越多，补充运力成本越高，也会影响用户履约体验。'
+      },
+      repair: {
+        name: '维修',
+        formula: '百台车月故障次数 × 单次维修工时 × 单工时成本 / 100',
+        relation: '故障次数和维修效率会影响维修成本。'
+      },
+      mapping: {
+        name: '采图制图',
+        formula: '采图制图月度费用按车辆或路线进行摊销',
+        relation: '路线扩张和地图更新频率会影响该成本项。'
+      },
+      fixed: {
+        name: '运营固定成本',
+        formula: '仓储 + 地勤人员 + 路线部署',
+        relation: '固定成本不直接随单量变化，但会随城市、路线和运维配置变化。'
+      },
+      warehouse: {
+        name: '仓储',
+        formula: '单车仓储固定额',
+        relation: '仓储价格、车辆停放策略和城市资源会影响该项成本。'
+      },
+      ground: {
+        name: '地勤人员',
+        formula: '地勤成本 / 地勤人车比 × (1+排班冗余)',
+        relation: '地勤人效提升会降低单车固定运营成本。'
+      },
+      route: {
+        name: '路线部署',
+        formula: '路线部署月度费用按车辆或路线摊销',
+        relation: '路线复杂度和部署频率会影响固定运营成本。'
+      }
     };
 
     function format(value) {
@@ -401,6 +526,7 @@
       const classes = ['node'];
       if (options.active) classes.push('active');
       if (options.changed) classes.push('changed');
+      if (options.leaf) classes.push('leaf');
       return `
         <div class="${classes.join(' ')}" ${options.action ? `data-action="${options.action}"` : ''}>
           <div class="node-title">
@@ -417,35 +543,77 @@
       const tree = document.getElementById('tree');
       const base = modeBase[state.mode];
       const risk = state.accidentCount * 2500 / 100;
-      const variable = (state.mode === 'sale' ? 1159 : 1497) + risk;
-      const totalCost = base.asset + variable + base.fixed;
+      const variableItems = {
+        charging: state.mode === 'platform' ? 338 : 0,
+        remote: 804,
+        cs: 50,
+        insurance: 50,
+        risk,
+        traffic: state.mode === 'platform' ? 100 : 0,
+        cloud: 63,
+        backup: state.accidentCount * 25 / 100,
+        repair: 10,
+        mapping: 50
+      };
+      const fixedItems = {
+        warehouse: state.mode === 'platform' ? 50 : 0,
+        ground: 110,
+        route: 140
+      };
+      const variable = Object.values(variableItems).reduce((sum, value) => sum + value, 0);
+      const fixed = Object.values(fixedItems).reduce((sum, value) => sum + value, 0);
+      const totalCost = base.asset + variable + fixed;
       const grossProfit = base.revenue - totalCost;
       const showDetail = state.step !== 'overview';
       const showSelected = state.step === 'selected' || state.step === 'changed';
       const changed = state.step === 'changed';
+      const isSelected = (key) => showSelected && state.selectedMetric === key;
+      const isChanged = (key) => changed && ['risk', 'variable', 'backup'].includes(key);
 
       tree.innerHTML = `
         ${node('单车毛利', format(grossProfit) + ' 元', '= 单车收入 - 单车成本', { active: state.step === 'overview', changed })}
         <div class="connector"></div>
         <div class="row two">
-          ${node('单车收入', format(base.revenue) + ' 元', state.mode === 'sale' ? '一次性售价' : '月度收入')}
+          ${node('单车收入', format(base.revenue) + ' 元', state.mode === 'sale' ? '一次性售价' : '月度收入', { action: 'select:revenue', active: isSelected('revenue') })}
           ${node('单车成本', format(totalCost) + ' 元', '点击展开成本结构', { active: showDetail, changed, action: 'expand' })}
         </div>
         ${showDetail ? `
           <div class="connector"></div>
           <div class="row three">
-            ${node('资产成本', format(base.asset) + ' 元', state.mode === 'sale' ? '硬件+预计负债' : '摊销口径')}
-            ${node('运营变动', format(variable) + ' 元', '随事故/人效/MPRI变化', { active: showSelected, changed })}
-            ${node('运营固定', format(base.fixed) + ' 元', '仓储/地勤/路线')}
+            ${node('资产成本', format(base.asset) + ' 元', state.mode === 'sale' ? '硬件+预计负债' : '摊销口径', { action: 'select:asset', active: isSelected('asset') })}
+            ${node('运营变动', format(variable) + ' 元', '随事故/人效/MPRI变化', { action: 'select:variable', active: isSelected('variable'), changed })}
+            ${node('运营固定', format(fixed) + ' 元', '仓储/地勤/路线', { action: 'select:fixed', active: isSelected('fixed') })}
           </div>
           <div class="connector"></div>
           <div class="cost-box">
-            <div class="row five">
-              ${node('远驾', '804', '人车比影响')}
-              ${node('云服务', '63', 'MPRI影响')}
-              ${node('维修', '10', '故障次数影响')}
-              ${node('风险赔偿', format(risk), '点击看公式', { active: showSelected, changed, action: 'select-risk' })}
-              ${node('采图制图', '50', '月度摊销')}
+            <div class="section-title"><span>资产成本继续展开</span><span>每项都可点击</span></div>
+            <div class="row asset">
+              ${node('硬件成本', state.mode === 'sale' ? format(base.asset) : '65,000', 'BOM/采购成本', { action: 'select:hardware', active: isSelected('hardware'), leaf: true })}
+              ${node('IRR/折旧摊销', state.mode === 'sale' ? '不适用' : format(base.asset), state.mode === 'platform' ? 'IRR摊销' : state.mode === 'lease' ? '折旧摊销' : '卖车不摊销', { action: 'select:irr', active: isSelected('irr'), leaf: true })}
+              ${node('预计负债', state.mode === 'sale' ? '41,940' : '不适用', '卖车模式使用', { action: 'select:provision', active: isSelected('provision'), leaf: true })}
+            </div>
+          </div>
+          <div class="cost-box">
+            <div class="section-title"><span>运营变动成本继续展开</span><span>事故、人效、MPRI等参数联动</span></div>
+            <div class="row variable">
+              ${node('充电', format(variableItems.charging), '能耗/电价影响', { action: 'select:charging', active: isSelected('charging'), leaf: true })}
+              ${node('远驾', format(variableItems.remote), '人车比影响', { action: 'select:remote', active: isSelected('remote'), leaf: true })}
+              ${node('客服', format(variableItems.cs), '客服人车比影响', { action: 'select:cs', active: isSelected('cs'), leaf: true })}
+              ${node('保险', format(variableItems.insurance), '月度保费', { action: 'select:insurance', active: isSelected('insurance'), leaf: true })}
+              ${node('风险赔偿', format(variableItems.risk), '点击看公式', { active: isSelected('risk'), changed: isChanged('risk'), action: 'select:risk', leaf: true })}
+              ${node('流量', format(variableItems.traffic), '数据套餐影响', { action: 'select:traffic', active: isSelected('traffic'), leaf: true })}
+              ${node('云服务', format(variableItems.cloud), 'MPRI影响', { action: 'select:cloud', active: isSelected('cloud'), leaf: true })}
+              ${node('补充运力', format(variableItems.backup), '事故次数影响', { action: 'select:backup', active: isSelected('backup'), changed: isChanged('backup'), leaf: true })}
+              ${node('维修', format(variableItems.repair), '故障次数影响', { action: 'select:repair', active: isSelected('repair'), leaf: true })}
+              ${node('采图制图', format(variableItems.mapping), '月度摊销', { action: 'select:mapping', active: isSelected('mapping'), leaf: true })}
+            </div>
+          </div>
+          <div class="cost-box">
+            <div class="section-title"><span>运营固定成本继续展开</span><span>固定成本也能点击看口径</span></div>
+            <div class="row fixed">
+              ${node('仓储', format(fixedItems.warehouse), '仓储固定额', { action: 'select:warehouse', active: isSelected('warehouse'), leaf: true })}
+              ${node('地勤人员', format(fixedItems.ground), '地勤人车比影响', { action: 'select:ground', active: isSelected('ground'), leaf: true })}
+              ${node('路线部署', format(fixedItems.route), '路线月度摊销', { action: 'select:route', active: isSelected('route'), leaf: true })}
             </div>
           </div>
         ` : ''}
@@ -459,8 +627,9 @@
         });
       });
 
-      tree.querySelectorAll('[data-action="select-risk"]').forEach((el) => {
+      tree.querySelectorAll('[data-action^="select:"]').forEach((el) => {
         el.addEventListener('click', () => {
+          state.selectedMetric = el.dataset.action.split(':')[1];
           state.step = 'selected';
           syncControls();
           render();
@@ -474,6 +643,31 @@
       const risk = state.accidentCount * 2500 / 100;
       const baseRisk = 23 * 2500 / 100;
       const delta = risk - baseRisk;
+      const selected = metricCopy[state.selectedMetric] || metricCopy.risk;
+      const selectedValueMap = {
+        revenue: modeBase[state.mode].revenue,
+        asset: modeBase[state.mode].asset,
+        hardware: state.mode === 'sale' ? modeBase[state.mode].asset : 65000,
+        irr: state.mode === 'sale' ? 0 : modeBase[state.mode].asset,
+        provision: state.mode === 'sale' ? 41940 : 0,
+        charging: state.mode === 'platform' ? 338 : 0,
+        remote: 804,
+        cs: 50,
+        insurance: 50,
+        risk,
+        traffic: state.mode === 'platform' ? 100 : 0,
+        cloud: 63,
+        backup: state.accidentCount * 25 / 100,
+        repair: 10,
+        mapping: 50,
+        warehouse: state.mode === 'platform' ? 50 : 0,
+        ground: 110,
+        route: 140
+      };
+      selectedValueMap.variable = ['charging', 'remote', 'cs', 'insurance', 'risk', 'traffic', 'cloud', 'backup', 'repair', 'mapping']
+        .reduce((sum, key) => sum + selectedValueMap[key], 0);
+      selectedValueMap.fixed = ['warehouse', 'ground', 'route'].reduce((sum, key) => sum + selectedValueMap[key], 0);
+      const selectedValue = selectedValueMap[state.selectedMetric] ?? risk;
 
       if (state.step === 'overview') {
         title.textContent = '交互状态：默认态';
@@ -499,23 +693,23 @@
         return;
       }
 
-      title.textContent = '右侧指标抽屉：风险赔偿';
+      title.textContent = `右侧指标抽屉：${selected.name}`;
       body.innerHTML = `
         <div class="stat">
           <div class="stat-label">当前值</div>
-          <div class="stat-value">${format(risk)} 元/车/月</div>
+          <div class="stat-value">${selectedValue ? format(selectedValue) : '不适用'} 元/车/月</div>
         </div>
         <div class="explain-block">
           <strong>计算逻辑</strong>
-          <span>百台车月事故次数 × 单次赔偿金额 × 风险概率 / 100</span>
+          <span>${selected.formula}</span>
         </div>
         <div class="explain-block">
           <strong>关联关系</strong>
-          <span>风险赔偿上升，会推高运营变动成本，进而推高单车成本，压低单车毛利。</span>
+          <span>${selected.relation}</span>
         </div>
         ${state.step === 'changed' ? `
           <div class="impact">
-            事故次数从 23 调到 ${state.accidentCount}，风险赔偿变化 ${delta >= 0 ? '+' : ''}${format(delta)} 元/车/月，整棵树自动高亮受影响节点。
+            事故次数从 23 调到 ${state.accidentCount}，风险赔偿变化 ${delta >= 0 ? '+' : ''}${format(delta)} 元/车/月，风险赔偿、补充运力、运营变动成本、单车成本、单车毛利会被联动影响。
           </div>
         ` : ''}
       `;
@@ -555,6 +749,7 @@
     document.querySelectorAll('[data-accident]').forEach((btn) => {
       btn.addEventListener('click', () => {
         state.accidentCount = Number(btn.dataset.accident);
+        state.selectedMetric = 'risk';
         state.step = 'changed';
         render();
       });
