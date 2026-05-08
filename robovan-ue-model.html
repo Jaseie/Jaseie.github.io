@@ -613,7 +613,142 @@
       gap: 10px;
     }
 
+    .role-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+    .role-card {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 14px;
+      cursor: pointer;
+      background: var(--soft);
+      transition: all 0.2s;
+      position: relative;
+    }
+    .role-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+    .role-card.active {
+      border-color: var(--accent);
+      background: linear-gradient(135deg, #eef4ff 0%, #fff 100%);
+      box-shadow: 0 6px 18px rgba(37, 99, 235, 0.15);
+    }
+    .role-icon {
+      width: 36px; height: 36px;
+      border-radius: 10px;
+      background: var(--accent);
+      color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; font-weight: 700;
+      margin-bottom: 10px;
+    }
+    .role-card h4 { font-size: 15px; margin-bottom: 4px; }
+    .role-card .role-vars {
+      display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px;
+    }
+    .role-card .role-tag {
+      font-size: 11px; padding: 2px 8px; border-radius: 6px;
+      background: #fff; border: 1px solid var(--line); color: var(--muted);
+    }
+    .role-card.active .role-tag {
+      background: var(--accent); color: #fff; border-color: var(--accent);
+    }
+
+    .bullet-chart { margin-top: 12px; }
+    .bullet-row {
+      display: grid;
+      grid-template-columns: 70px 1fr 110px;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px dashed var(--line);
+    }
+    .bullet-row:last-child { border-bottom: none; }
+    .bullet-track {
+      position: relative;
+      height: 28px;
+      background: #f1f5f9;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    .bullet-track .zero-line {
+      position: absolute; top: 0; bottom: 0; width: 2px;
+      background: #94a3b8;
+    }
+    .bullet-bar {
+      position: absolute;
+      top: 4px; bottom: 4px;
+      border-radius: 4px;
+    }
+    .bullet-bar.positive { background: linear-gradient(90deg, #10b981, #059669); }
+    .bullet-bar.negative { background: linear-gradient(90deg, #ef4444, #dc2626); }
+    .bullet-value {
+      text-align: right; font-weight: 700; font-size: 15px;
+    }
+    .bullet-label { font-weight: 700; }
+
+    .stacked-chart { margin-top: 14px; }
+    .stacked-row {
+      display: grid;
+      grid-template-columns: 70px 1fr;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .stacked-bar {
+      display: flex;
+      height: 32px;
+      border-radius: 6px;
+      overflow: hidden;
+      background: #f1f5f9;
+    }
+    .stacked-seg {
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-size: 12px; font-weight: 700;
+      transition: all 0.2s;
+    }
+    .stacked-seg.asset { background: #6366f1; }
+    .stacked-seg.variable { background: #f59e0b; }
+    .stacked-seg.fixed { background: #14b8a6; }
+    .stacked-seg.gp-pos { background: #10b981; }
+    .stacked-seg.gp-neg { background: #ef4444; }
+    .stacked-legend {
+      display: flex; gap: 14px; margin-top: 10px; font-size: 12px; color: var(--muted);
+    }
+    .stacked-legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 4px; vertical-align: middle; }
+
+    .sankey-wrap { margin-top: 14px; padding: 12px; background: var(--soft); border-radius: 12px; }
+    .sankey-svg { width: 100%; height: 360px; }
+
+    .impact-toast {
+      position: fixed;
+      bottom: 24px; right: 24px;
+      background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+      color: #fff;
+      padding: 16px 20px;
+      border-radius: 14px;
+      box-shadow: 0 12px 32px rgba(37, 99, 235, 0.35);
+      max-width: 360px;
+      z-index: 100;
+      animation: slideUp 0.3s ease-out;
+    }
+    .impact-toast h4 { color: #fff; margin-bottom: 6px; font-size: 14px; }
+    .impact-toast .delta { font-size: 22px; font-weight: 800; margin: 4px 0; }
+    .impact-toast .delta.positive { color: #86efac; }
+    .impact-toast .delta.negative { color: #fca5a5; }
+    .impact-toast .sub { color: rgba(255,255,255,0.85); font-size: 12px; }
+    .impact-toast .close-btn {
+      position: absolute; top: 8px; right: 12px;
+      background: transparent; border: none; color: #fff;
+      cursor: pointer; font-size: 16px;
+    }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
     @media (max-width: 1200px) {
+      .role-grid { grid-template-columns: repeat(2, 1fr); }
       .workbench { grid-template-columns: 1fr; }
       .workbench.annual-mode { grid-template-columns: 1fr; }
       .annual-layout { grid-template-columns: 1fr; }
@@ -693,6 +828,19 @@
         <section class="card">
           <div class="card-header">
             <div>
+              <h2>我的岗位 · 我能影响什么</h2>
+              <p class="sub">选择你的角色，下方变量面板会聚焦你能影响的变量；点击后看自己的工作如何改变全年毛利。</p>
+            </div>
+            <span class="pill" id="rolePill">未选择角色</span>
+          </div>
+          <div class="card-body">
+            <div class="role-grid" id="roleGrid"></div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-header">
+            <div>
               <h2>经营结论</h2>
               <p class="sub">先给判断，再进入对比或下钻。</p>
             </div>
@@ -700,6 +848,46 @@
           </div>
           <div class="card-body">
             <div id="homeInsights"></div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-header">
+            <div>
+              <h2>三模式毛利子弹图</h2>
+              <p class="sub">一眼看清谁亏谁赚、差距多大。横轴为单车毛利，零线左侧亏、右侧赚。</p>
+            </div>
+            <span class="pill active" id="bulletScopePill">单车口径</span>
+          </div>
+          <div class="card-body">
+            <div id="bulletChart"></div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-header">
+            <div>
+              <h2>每 100 元收入花到哪</h2>
+              <p class="sub">100% 堆叠图回答：每赚 100 块，资产成本占多少、变动多少、固定多少，最后剩下多少毛利。</p>
+            </div>
+          </div>
+          <div class="card-body">
+            <div id="stackedChart"></div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-header">
+            <div>
+              <h2>资金流向桑基图</h2>
+              <p class="sub">从业务输入（车辆、交付）到收入，再分流到三类成本，最终汇成毛利。把"我做了什么"和"经营结果"用一条水流连起来。</p>
+            </div>
+            <span class="pill" id="sankeyModePill"></span>
+          </div>
+          <div class="card-body">
+            <div class="sankey-wrap">
+              <svg class="sankey-svg" id="sankeySvg" viewBox="0 0 800 360" preserveAspectRatio="xMidYMid meet"></svg>
+            </div>
           </div>
         </section>
 
@@ -898,7 +1086,16 @@
       groundCost: { name: '地勤月成本', formula: '地勤单人月成本', params: '地勤月成本', relation: ['地勤月成本', '地勤人员', '运营固定成本'] }
     };
 
+    const variableLabels = {
+      vehicles: '车辆数', deliveries: '交付量', hardwareCost: '硬件成本',
+      accidents: '事故次数', mpir: 'MPRI', energy: '能源',
+      trafficCost: '路费', mappingCost: '建图费', remoteRatio: '远驾人车比',
+      cloudCost: '云服务', repair: '维修', salePrice: '卖车单价',
+      unitRevenue: '单车收入', platformRevenue: '平台单车收入', leaseRevenue: '租赁单车收入'
+    };
     const state = {
+      role: null,
+      lastImpact: null,
       view: 'compare',
       mode: 'platform',
       month: 7,
@@ -1098,6 +1295,161 @@
       document.getElementById('currentMonthPill').textContent = `${months[state.month]} · ${state.scope === 'unit' ? '单车口径' : '总盘子口径'}`;
     }
 
+    const roles = [
+      { id: 'ops', icon: '调', name: '司机调度/运营', desc: '决定每月跑多少车、投多少远驾安全员', vars: ['vehicles', 'remoteRatio', 'energy'] },
+      { id: 'maint', icon: '修', name: '车辆运维', desc: '直接影响事故率、维修费、MPRI', vars: ['accidents', 'mpir', 'repair'] },
+      { id: 'biz', icon: '商', name: '商务/销售', desc: '影响订单收入、卖车单价、交付节奏', vars: ['unitRevenue', 'salePrice', 'deliveries'] },
+      { id: 'tech', icon: '技', name: '产品/技术', desc: '影响硬件成本、云服务、地图建图费', vars: ['hardwareCost', 'cloudCost', 'mappingCost'] }
+    ];
+
+    function renderRoleAnchor() {
+      const grid = document.getElementById('roleGrid');
+      if (!grid) return;
+      grid.innerHTML = roles.map((r) => `<div class="role-card ${state.role === r.id ? 'active' : ''}" data-role="${r.id}">
+        <div class="role-icon">${r.icon}</div>
+        <h4>${r.name}</h4>
+        <p class="sub">${r.desc}</p>
+        <div class="role-vars">${r.vars.map((v) => `<span class="role-tag">${variableLabels[v] || v}</span>`).join('')}</div>
+      </div>`).join('');
+      grid.querySelectorAll('[data-role]').forEach((el) => {
+        el.addEventListener('click', () => {
+          state.role = state.role === el.dataset.role ? null : el.dataset.role;
+          render();
+        });
+      });
+      const pill = document.getElementById('rolePill');
+      if (pill) {
+        const r = roles.find((x) => x.id === state.role);
+        pill.textContent = r ? `当前角色：${r.name}` : '未选择角色';
+        pill.classList.toggle('active', !!r);
+      }
+    }
+
+    function renderBulletChart() {
+      const target = document.getElementById('bulletChart');
+      if (!target) return;
+      const rows = ['platform', 'lease', 'sale'].map((mode) => {
+        const d = calculate(mode);
+        return { mode, value: scopedValue(d, 'grossProfit'), revenue: scopedValue(d, 'revenue'), cost: scopedValue(d, 'totalCost'), gm: d.grossMargin };
+      });
+      const maxAbs = Math.max(...rows.map((r) => Math.abs(r.value)), 1);
+      const scale = 50 / maxAbs;
+      target.innerHTML = `<div class="bullet-chart">
+        ${rows.map((r) => {
+          const widthPct = Math.abs(r.value) * scale;
+          const positive = r.value >= 0;
+          const left = positive ? 50 : 50 - widthPct;
+          return `<div class="bullet-row">
+            <div class="bullet-label">${modeNames[r.mode]}</div>
+            <div class="bullet-track">
+              <div class="zero-line" style="left:50%;"></div>
+              <div class="bullet-bar ${positive ? 'positive' : 'negative'}" style="left:${left}%; width:${widthPct}%;"></div>
+            </div>
+            <div class="bullet-value ${positive ? 'positive' : 'negative'}">${fmt(r.value, ' 元')}</div>
+          </div>`;
+        }).join('')}
+      </div>
+      <p class="sub" style="margin-top:10px;">最佳：${modeNames[rows.slice().sort((a,b)=>b.value-a.value)[0].mode]}；最差：${modeNames[rows.slice().sort((a,b)=>a.value-b.value)[0].mode]}。切换顶部"口径"可比较单车或总盘子。</p>`;
+      const pill = document.getElementById('bulletScopePill');
+      if (pill) pill.textContent = state.scope === 'total' ? '总盘子口径' : '单车口径';
+    }
+
+    function renderStackedChart() {
+      const target = document.getElementById('stackedChart');
+      if (!target) return;
+      const rows = ['platform', 'lease', 'sale'].map((mode) => {
+        const d = calculate(mode);
+        const rev = d.revenue || 1;
+        return {
+          mode,
+          asset: Math.max(0, d.assetCost) / rev * 100,
+          variable: Math.max(0, d.variableCost) / rev * 100,
+          fixed: Math.max(0, d.fixedCost) / rev * 100,
+          gp: d.grossProfit / rev * 100
+        };
+      });
+      target.innerHTML = `<div class="stacked-chart">
+        ${rows.map((r) => {
+          const totalCost = r.asset + r.variable + r.fixed;
+          const gpPos = r.gp >= 0;
+          const segments = [
+            { cls: 'asset', val: r.asset, label: '资产' },
+            { cls: 'variable', val: r.variable, label: '变动' },
+            { cls: 'fixed', val: r.fixed, label: '固定' },
+            { cls: gpPos ? 'gp-pos' : 'gp-neg', val: Math.abs(r.gp), label: gpPos ? '毛利' : '亏损' }
+          ];
+          const totalWidth = segments.reduce((s, x) => s + x.val, 0) || 1;
+          return `<div class="stacked-row">
+            <div class="bullet-label">${modeNames[r.mode]}</div>
+            <div class="stacked-bar">
+              ${segments.filter((s) => s.val > 0.5).map((s) => `<div class="stacked-seg ${s.cls}" style="width:${s.val / totalWidth * 100}%;" title="${s.label} ${s.val.toFixed(1)}%">${s.val > 8 ? s.label + ' ' + s.val.toFixed(0) + '%' : ''}</div>`).join('')}
+            </div>
+          </div>`;
+        }).join('')}
+        <div class="stacked-legend">
+          <span><i style="background:#6366f1"></i>资产成本</span>
+          <span><i style="background:#f59e0b"></i>运营变动</span>
+          <span><i style="background:#14b8a6"></i>运营固定</span>
+          <span><i style="background:#10b981"></i>毛利（绿）</span>
+          <span><i style="background:#ef4444"></i>亏损（红）</span>
+        </div>
+      </div>`;
+    }
+
+    function renderSankey() {
+      const svg = document.getElementById('sankeySvg');
+      if (!svg) return;
+      const mode = currentMode();
+      const d = calculate(mode);
+      const pill = document.getElementById('sankeyModePill');
+      if (pill) pill.textContent = `${modeNames[mode]} · 总盘子`;
+      const rev = d.revenue * d.count;
+      const asset = d.assetCost * d.count;
+      const variable = d.variableCost * d.count;
+      const fixed = d.fixedCost * d.count;
+      const gp = d.grossProfit * d.count;
+      const sources = [
+        { label: `${modeNames[mode]} 收入`, value: rev, color: '#2563eb' }
+      ];
+      const targets = [
+        { label: '资产成本', value: asset, color: '#6366f1' },
+        { label: '运营变动', value: variable, color: '#f59e0b' },
+        { label: '运营固定', value: fixed, color: '#14b8a6' },
+        { label: gp >= 0 ? '毛利' : '亏损', value: Math.abs(gp), color: gp >= 0 ? '#10b981' : '#ef4444' }
+      ].filter((x) => x.value > 0);
+      const total = targets.reduce((s, t) => s + t.value, 0) || 1;
+      const w = 800, h = 360;
+      const leftX = 80, rightX = 600, nodeW = 24;
+      const sourceH = 280, sourceY = 40;
+      let cursor = sourceY;
+      const targetGap = 12;
+      const targetTotalH = 280 - (targets.length - 1) * targetGap;
+      let svgContent = '';
+      svgContent += `<rect x="${leftX}" y="${sourceY}" width="${nodeW}" height="${sourceH}" fill="#2563eb" rx="3"/>`;
+      svgContent += `<text x="${leftX - 8}" y="${sourceY + sourceH / 2}" text-anchor="end" font-size="13" font-weight="700" fill="#0f172a">${modeNames[mode]}收入</text>`;
+      svgContent += `<text x="${leftX - 8}" y="${sourceY + sourceH / 2 + 16}" text-anchor="end" font-size="11" fill="#64748b">${fmt(rev, ' 元')}</text>`;
+      let tCursor = sourceY;
+      targets.forEach((t) => {
+        const tH = (t.value / total) * targetTotalH;
+        svgContent += `<rect x="${rightX + nodeW}" y="${tCursor}" width="${nodeW}" height="${tH}" fill="${t.color}" rx="3"/>`;
+        svgContent += `<text x="${rightX + nodeW + 30}" y="${tCursor + tH / 2}" font-size="13" font-weight="700" fill="#0f172a">${t.label}</text>`;
+        svgContent += `<text x="${rightX + nodeW + 30}" y="${tCursor + tH / 2 + 16}" font-size="11" fill="#64748b">${fmt(t.value, ' 元')}（${(t.value / rev * 100).toFixed(1)}%）</text>`;
+        const sH = (t.value / rev) * sourceH;
+        const sy0 = cursor;
+        const sy1 = cursor + sH;
+        const ty0 = tCursor;
+        const ty1 = tCursor + tH;
+        const x0 = leftX + nodeW;
+        const x1 = rightX + nodeW;
+        const cx = (x0 + x1) / 2;
+        const path = `M ${x0} ${sy0} C ${cx} ${sy0}, ${cx} ${ty0}, ${x1} ${ty0} L ${x1} ${ty1} C ${cx} ${ty1}, ${cx} ${sy1}, ${x0} ${sy1} Z`;
+        svgContent += `<path d="${path}" fill="${t.color}" opacity="0.35"><title>${t.label} ${(t.value / rev * 100).toFixed(1)}%</title></path>`;
+        cursor = sy1;
+        tCursor = ty1 + targetGap;
+      });
+      svg.innerHTML = svgContent;
+    }
+
     function renderHomeInsights() {
       const rows = ['platform', 'lease', 'sale'].map((mode) => {
         const d = calculate(mode);
@@ -1290,11 +1642,15 @@
         </div>
         ${variableGroups.map(([group, vars]) => `<div class="variable-group">
         <h3>${group}</h3>
-        ${vars.map(([key, label, min, max, step, unit]) => `<div class="var-card ${state.changedVar === key ? 'active' : ''}" data-var="${key}">
-          <div class="var-top"><span>${label}</span><span class="var-value">${fmt(state.inputs[key])}${unit && !['元/月', '元'].includes(unit) ? unit : ''}</span></div>
+        ${vars.map(([key, label, min, max, step, unit]) => {
+          const role = roles.find((r) => r.id === state.role);
+          const isRoleVar = role && role.vars.includes(key);
+          return `<div class="var-card ${state.changedVar === key ? 'active' : ''}" data-var="${key}" style="${isRoleVar ? 'border-color: var(--accent); box-shadow: 0 2px 8px rgba(37,99,235,0.12);' : ''}">
+          <div class="var-top"><span>${label} ${isRoleVar ? '<span class="pill active" style="margin-left:4px;">你的杠杆</span>' : ''}</span><span class="var-value">${fmt(state.inputs[key])}${unit && !['元/月', '元'].includes(unit) ? unit : ''}</span></div>
           <div class="var-impact">${(impactLabels[key] || ['相关指标']).map((x) => `<span class="pill">${x}</span>`).join('')}</div>
           <input type="range" min="${min}" max="${max}" step="${step}" value="${state.inputs[key]}" data-range="${key}" />
-        </div>`).join('')}
+        </div>`;
+        }).join('')}
       </div>`).join('')}`;
       document.getElementById('resetInputsBtn').addEventListener('click', () => {
         state.inputs = JSON.parse(JSON.stringify(state.baseline));
@@ -1314,6 +1670,7 @@
       document.querySelectorAll('[data-action-card]').forEach((el) => {
         el.addEventListener('click', () => {
           const action = el.dataset.actionCard;
+          const before = computeAnnualGpAll();
           if (action === 'accident') {
             state.inputs.accidents = Math.max(1, Math.round(state.inputs.accidents * 0.65));
             state.changedVar = 'accidents';
@@ -1346,18 +1703,71 @@
             state.selected = 'cloud';
             state.expanded.variable = true;
           }
+          const after = computeAnnualGpAll();
+          showImpactToast(state.changedVar || 'action', before, after);
           render();
         });
       });
       document.querySelectorAll('[data-range]').forEach((el) => {
         el.addEventListener('input', () => {
           const key = el.dataset.range;
+          const before = computeAnnualGpAll();
           state.inputs[key] = Number(el.value);
           state.changedVar = key;
           state.selected = variableToNode(key);
+          const after = computeAnnualGpAll();
+          showImpactToast(key, before, after);
           render();
         });
       });
+    }
+
+    function computeAnnualGpAll() {
+      const result = {};
+      ['platform', 'lease', 'sale'].forEach((m) => {
+        let total = 0;
+        for (let i = 0; i < months.length; i++) {
+          const input = { ...state.inputs };
+          const rH = state.inputs.hardwareCost / (monthDefaults.hardwareCost[state.month] || 1);
+          const rA = state.inputs.accidents / (monthDefaults.accidents[state.month] || 1);
+          input.hardwareCost = monthDefaults.hardwareCost[i] * rH;
+          input.accidents = monthDefaults.accidents[i] * rA;
+          input.vehicles = monthDefaults.vehicles[i];
+          input.deliveries = monthDefaults.saleDeliveries[i];
+          input.mpir = monthDefaults.mpir[i];
+          input.energy = monthDefaults.energy[i];
+          input.trafficCost = monthDefaults.traffic[i];
+          input.mappingCost = monthDefaults.mapping[i];
+          const row = calculate(m, input);
+          total += row.grossProfit * row.count;
+        }
+        result[m] = total;
+      });
+      return result;
+    }
+
+    function showImpactToast(key, before, after) {
+      const mode = currentMode();
+      const delta = after[mode] - before[mode];
+      if (Math.abs(delta) < 1) return;
+      const old = document.getElementById('impactToast');
+      if (old) old.remove();
+      const positive = delta >= 0;
+      const toast = document.createElement('div');
+      toast.id = 'impactToast';
+      toast.className = 'impact-toast';
+      toast.innerHTML = `
+        <button class="close-btn" onclick="document.getElementById('impactToast').remove()">×</button>
+        <h4>你的动作产生了影响</h4>
+        <div class="sub">调整 <strong style="color:#fff">${variableLabels[key] || key}</strong> 后，${modeNames[mode]} 全年毛利变化：</div>
+        <div class="delta ${positive ? 'positive' : 'negative'}">${positive ? '+' : ''}${fmt(delta, ' 元')}</div>
+        <div class="sub">三模式全年毛利：${['platform','lease','sale'].map((m)=>`${modeNames[m]} ${fmt(after[m],'')}`).join(' · ')}</div>`;
+      document.body.appendChild(toast);
+      clearTimeout(window._impactTimer);
+      window._impactTimer = setTimeout(() => {
+        const t = document.getElementById('impactToast');
+        if (t) t.remove();
+      }, 6000);
     }
 
     function variableToNode(key) {
@@ -2081,7 +2491,11 @@
 
     function render() {
       renderControls();
+      renderRoleAnchor();
       renderHomeInsights();
+      renderBulletChart();
+      renderStackedChart();
+      renderSankey();
       renderModeCards();
       renderDimensionCompare();
       renderVariables();
