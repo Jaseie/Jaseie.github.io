@@ -1,0 +1,786 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Robovan UE 经营影响模型</title>
+  <style>
+    :root {
+      --bg: #f7f8fa;
+      --panel: #ffffff;
+      --soft: #f1f5f9;
+      --soft-2: #e8eef7;
+      --text: #111827;
+      --muted: #64748b;
+      --line: #d8e0ea;
+      --accent: #2563eb;
+      --accent-soft: #dbeafe;
+      --warn: #b45309;
+      --warn-soft: #fef3c7;
+      --good: #047857;
+      --bad: #b91c1c;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--text);
+      background: var(--bg);
+    }
+
+    h1, h2, h3, p { margin: 0; }
+    h1 { font-size: 24px; line-height: 1.25; }
+    h2 { font-size: 17px; }
+    h3 { font-size: 14px; }
+    button, input, select { font: inherit; }
+
+    .page { max-width: 1500px; margin: 0 auto; padding: 22px; }
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: rgba(247, 248, 250, 0.96);
+      border-bottom: 1px solid var(--line);
+      padding: 14px 22px;
+      margin: -22px -22px 18px;
+    }
+
+    .topbar-inner {
+      max-width: 1500px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: minmax(280px, 1fr) auto;
+      gap: 16px;
+      align-items: end;
+    }
+
+    .sub { color: var(--muted); font-size: 13px; line-height: 1.45; margin-top: 6px; }
+    .controls { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; }
+    .control {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    select {
+      min-width: 126px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--panel);
+      padding: 8px 10px;
+      color: var(--text);
+    }
+
+    .section { margin-top: 18px; }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+    }
+    .card-header {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+    .card-body { padding: 16px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+    .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+    .workspace { display: grid; grid-template-columns: 300px minmax(0, 1fr) 360px; gap: 16px; align-items: start; }
+
+    .mode-card {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 14px;
+      background: var(--panel);
+      cursor: pointer;
+    }
+    .mode-card.active { border-color: var(--accent); background: var(--accent-soft); }
+    .mode-title { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .kpis { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 12px; }
+    .kpi-label { color: var(--muted); font-size: 12px; }
+    .kpi-value { font-size: 20px; font-weight: 800; margin-top: 3px; }
+    .negative { color: var(--bad); }
+    .positive { color: var(--good); }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 3px 8px;
+      background: var(--soft);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .pill.active { color: var(--accent); background: var(--accent-soft); }
+    .pill.warn { color: var(--warn); background: var(--warn-soft); }
+
+    .dimension-layout { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 16px; }
+    .metric-list { display: flex; flex-wrap: wrap; gap: 8px; }
+    .metric-button, .action-button, .small-button {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      color: var(--text);
+      border-radius: 10px;
+      padding: 8px 10px;
+      cursor: pointer;
+    }
+    .metric-button.active, .action-button.active, .small-button.active {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: white;
+    }
+    .metric-button:hover, .action-button:hover, .small-button:hover { border-color: var(--accent); }
+
+    .compare-row {
+      display: grid;
+      grid-template-columns: 92px minmax(120px, 1fr) 120px;
+      gap: 12px;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--line);
+    }
+    .compare-row:last-child { border-bottom: 0; }
+    .bar-track { height: 12px; border-radius: 999px; background: var(--soft); overflow: hidden; }
+    .bar-fill { height: 100%; border-radius: 999px; background: var(--accent); width: 10%; }
+
+    .variable-group { margin-bottom: 14px; }
+    .variable-group h3 { margin-bottom: 8px; }
+    .var-card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px;
+      margin-bottom: 8px;
+      background: var(--panel);
+      cursor: pointer;
+    }
+    .var-card.active { border-color: var(--accent); background: var(--accent-soft); }
+    .var-top { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+    .var-value { font-weight: 800; }
+    input[type="range"] { width: 100%; margin-top: 8px; accent-color: var(--accent); }
+
+    .tree-wrap { overflow: auto; min-height: 650px; }
+    .tree {
+      min-width: 1080px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 8px;
+    }
+    .tree-row { display: grid; gap: 13px; width: 100%; justify-content: center; }
+    .tree-row.two { grid-template-columns: repeat(2, 180px); }
+    .tree-row.three { grid-template-columns: repeat(3, 180px); }
+    .tree-row.asset { grid-template-columns: repeat(3, 170px); }
+    .tree-row.variable { grid-template-columns: repeat(5, 150px); }
+    .tree-row.fixed { grid-template-columns: repeat(3, 170px); }
+    .connector { width: 1px; height: 22px; background: var(--line); }
+    .tree-section {
+      width: 100%;
+      border: 1px solid var(--line);
+      background: var(--soft);
+      border-radius: 14px;
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+    .section-title {
+      display: flex;
+      justify-content: space-between;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      margin-bottom: 10px;
+    }
+    .node {
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      padding: 12px;
+      min-height: 88px;
+      background: var(--panel);
+      cursor: pointer;
+      transition: transform 150ms ease, background 150ms ease, border-color 150ms ease;
+    }
+    .node:hover { transform: translateY(-1px); border-color: var(--accent); }
+    .node.active { border-color: var(--accent); background: var(--accent-soft); }
+    .node.impacted { border-color: var(--warn); background: var(--warn-soft); }
+    .node-title { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; font-weight: 800; }
+    .node-value { font-size: 20px; font-weight: 900; margin-top: 7px; }
+    .node-sub { color: var(--muted); font-size: 12px; line-height: 1.35; margin-top: 4px; }
+
+    .drawer-block { border-top: 1px solid var(--line); padding-top: 12px; margin-top: 12px; }
+    .drawer-block:first-child { border-top: 0; padding-top: 0; margin-top: 0; }
+    .chain { display: flex; flex-direction: column; gap: 7px; margin-top: 8px; }
+    .chain-item { padding: 8px 10px; border-radius: 10px; background: var(--soft); font-size: 13px; }
+    .summary {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 14px;
+      background: var(--panel);
+    }
+    .summary.impact { border-color: var(--warn); background: var(--warn-soft); }
+
+    .trend-line {
+      height: 54px;
+      display: flex;
+      align-items: end;
+      gap: 4px;
+      padding-top: 8px;
+    }
+    .trend-bar { flex: 1; min-width: 8px; background: var(--accent-soft); border-radius: 6px 6px 0 0; }
+    .trend-bar.negative { background: #fecaca; }
+
+    @media (max-width: 1200px) {
+      .workspace { grid-template-columns: 1fr; }
+      .dimension-layout { grid-template-columns: 1fr; }
+      .topbar-inner { grid-template-columns: 1fr; }
+      .controls { justify-content: flex-start; }
+    }
+    @media (max-width: 900px) {
+      .grid-3, .grid-4 { grid-template-columns: 1fr; }
+      .page { padding: 14px; }
+      .topbar { margin: -14px -14px 14px; padding: 12px 14px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="topbar">
+      <div class="topbar-inner">
+        <div>
+          <h1>Robovan UE 经营影响模型</h1>
+          <p class="sub">用一张可交互的指标地图，看懂平台、租赁、卖车三种模式下，收入、成本、毛利如何被业务变量影响。</p>
+        </div>
+        <div class="controls">
+          <label class="control">当前视图
+            <select id="viewSelect">
+              <option value="compare">三模式对比</option>
+              <option value="platform">平台模式</option>
+              <option value="lease">租赁模式</option>
+              <option value="sale">卖车模式</option>
+            </select>
+          </label>
+          <label class="control">月份
+            <select id="monthSelect"></select>
+          </label>
+          <label class="control">口径
+            <select id="scopeSelect">
+              <option value="unit">单车</option>
+              <option value="total">总盘子</option>
+            </select>
+          </label>
+          <label class="control">关注指标
+            <select id="focusSelect"></select>
+          </label>
+        </div>
+      </div>
+    </header>
+
+    <section class="section card">
+      <div class="card-header">
+        <div>
+          <h2>1. 三模式经营总览</h2>
+          <p class="sub">先判断三种商业模式的经营结果，再决定下钻哪个指标。</p>
+        </div>
+        <span class="pill active" id="currentMonthPill">2026年11月 · 单车口径</span>
+      </div>
+      <div class="card-body">
+        <div class="grid-3" id="modeCards"></div>
+      </div>
+    </section>
+
+    <section class="section card">
+      <div class="card-header">
+        <div>
+          <h2>2. 同一维度三模式对比</h2>
+          <p class="sub">选择一个指标，横向看平台、租赁、卖车为什么不同。</p>
+        </div>
+        <span class="pill" id="dimensionPill">单车毛利</span>
+      </div>
+      <div class="card-body dimension-layout">
+        <div>
+          <h3>对比维度</h3>
+          <div class="metric-list" id="metricButtons" style="margin-top: 10px;"></div>
+        </div>
+        <div>
+          <div id="dimensionRows"></div>
+          <div class="summary" style="margin-top: 14px;">
+            <h3>差异解释</h3>
+            <p class="sub" id="dimensionExplanation"></p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section workspace">
+      <aside class="card">
+        <div class="card-header">
+          <div>
+            <h2>3. 业务变量面板</h2>
+            <p class="sub">不按角色分组，按变量类型调整。</p>
+          </div>
+        </div>
+        <div class="card-body" id="variablePanel"></div>
+      </aside>
+
+      <section class="card">
+        <div class="card-header">
+          <div>
+            <h2>4. 指标分解树</h2>
+            <p class="sub">点击任意节点，右侧查看公式、关联关系和影响链路。</p>
+          </div>
+          <span class="pill active" id="treeModePill">平台模式</span>
+        </div>
+        <div class="card-body tree-wrap">
+          <div class="tree" id="metricTree"></div>
+        </div>
+      </section>
+
+      <aside class="card">
+        <div class="card-header">
+          <div>
+            <h2 id="drawerTitle">指标解释</h2>
+            <p class="sub">把公式翻译成经营语言。</p>
+          </div>
+        </div>
+        <div class="card-body" id="drawer"></div>
+      </aside>
+    </section>
+
+    <section class="section grid-3">
+      <div class="summary impact" id="impactSummary"></div>
+      <div class="card">
+        <div class="card-header"><h2>5. 关键趋势</h2></div>
+        <div class="card-body">
+          <p class="sub">只保留核心趋势，避免图表墙。</p>
+          <div class="trend-line" id="trendLine"></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><h2>6. 使用路径</h2></div>
+        <div class="card-body">
+          <div class="chain">
+            <div class="chain-item">看三模式总览</div>
+            <div class="chain-item">选一个关注指标做横向对比</div>
+            <div class="chain-item">进入指标树看公式和关联关系</div>
+            <div class="chain-item">调整业务变量，看毛利影响</div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const months = ['2026年1月', '2026年2月', '2026年3月', '2026年4月', '2026年5月', '2026年6月', '2026年7月', '2026年8月'];
+    const modeNames = { platform: '平台模式', lease: '租赁模式', sale: '卖车模式' };
+    const modeShort = { platform: '平台', lease: '租赁', sale: '卖车' };
+    const metrics = [
+      ['grossProfit', '单车毛利'],
+      ['totalCost', '单车成本'],
+      ['revenue', '单车收入'],
+      ['grossMargin', '毛利率'],
+      ['assetCost', '资产成本'],
+      ['variableCost', '运营变动成本'],
+      ['fixedCost', '运营固定成本'],
+      ['risk', '风险赔偿'],
+      ['cloud', '云服务'],
+      ['repair', '维修'],
+      ['ground', '地勤人员']
+    ];
+
+    const formulas = {
+      grossProfit: { name: '单车毛利', formula: '单车收入 - 单车成本', params: '收入、资产成本、运营变动成本、运营固定成本', relation: ['单车收入', '单车成本', '单车毛利'] },
+      totalCost: { name: '单车成本', formula: '资产成本 + 运营变动成本 + 运营固定成本', params: '资产、运营、人力、风险、维修等全部变量', relation: ['资产/运营成本', '单车成本', '单车毛利'] },
+      revenue: { name: '单车收入', formula: '平台/租赁为月度单车收入；卖车为单车售价', params: '单车收入、单车售价', relation: ['定价/售价', '单车收入', '单车毛利'] },
+      assetCost: { name: '资产成本', formula: '平台: 硬件成本 × (1+IRR) / 5 / 12；租赁: 硬件成本 × 折旧残值率 / 折旧年限 / 12；卖车: 硬件成本 + max(累计运营成本, 预计负债)', params: '硬件成本、IRR、折旧残值率、折旧年限、预计负债比例', relation: ['硬件/摊销参数', '资产成本', '单车成本', '单车毛利'] },
+      variableCost: { name: '运营变动成本', formula: '充电 + 远驾 + 客服 + 保险 + 风险赔偿 + 流量 + 云服务 + 补充运力 + 维修 + 采图制图', params: '事故、人效、MPRI、能耗、故障次数等', relation: ['业务变量', '运营变动成本', '单车成本', '单车毛利'] },
+      fixedCost: { name: '运营固定成本', formula: '仓储 + 地勤人员 + 路线部署', params: '仓储、地勤人车比、路线部署费用', relation: ['固定运营配置', '运营固定成本', '单车成本', '单车毛利'] },
+      charging: { name: '充电', formula: '空跑里程 × 能耗 × 电费单价 × 30', params: '空跑里程、能耗、电费单价', relation: ['空跑/能耗', '充电', '运营变动成本', '单车毛利'] },
+      remote: { name: '远驾安全员', formula: '远驾安全员月成本 / 远驾人车比 × (1+排班冗余)', params: '远驾成本、远驾人车比、排班冗余', relation: ['远驾人效', '远驾成本', '运营变动成本', '单车毛利'] },
+      cs: { name: '客服', formula: '客服成本 / 客服人车比 × (1+排班冗余)', params: '客服成本、客服人车比、排班冗余', relation: ['客服人效', '客服成本', '运营变动成本'] },
+      insurance: { name: '保险', formula: '单车月度保费输入值', params: '保险费率/保费', relation: ['保险费', '运营变动成本', '单车毛利'] },
+      risk: { name: '风险赔偿', formula: '百台车月事故次数 × 单次赔偿金额 × 风险概率 / 100', params: '事故次数、赔偿金额、风险概率', relation: ['事故次数', '风险赔偿', '运营变动成本', '单车成本', '单车毛利'] },
+      traffic: { name: '流量', formula: '月度流量费参数', params: '车辆在线、流量套餐', relation: ['流量消耗', '运营变动成本', '单车毛利'] },
+      cloud: { name: '云服务', formula: '日均单量 × 工单时长 × 带宽消耗 × 出口流量单价 × 30 + 拉流带宽分摊', params: 'MPRI、工单时长、带宽、出口流量单价', relation: ['MPRI/工单', '云服务', '运营变动成本', '单车毛利'] },
+      backup: { name: '补充运力', formula: '补充运力单价 × 接单里程 × 百台车月事故次数 / 100', params: '事故次数、接单里程、补充运力单价', relation: ['事故次数', '补充运力', '运营变动成本'] },
+      repair: { name: '维修', formula: '百台车月故障次数 × 单次维修工时 × 单工时成本 / 100', params: '故障次数、维修工时、工时成本', relation: ['故障次数', '维修成本', '运营变动成本', '单车毛利'] },
+      mapping: { name: '采图制图', formula: '采图制图月度费用摊销', params: '采图制图费用', relation: ['路线/地图更新', '采图制图', '运营变动成本'] },
+      hardware: { name: '硬件成本', formula: '每台车硬件 BOM/采购成本', params: '硬件成本', relation: ['硬件成本', '资产成本', '单车成本', '单车毛利'] },
+      depreciation: { name: 'IRR/折旧摊销', formula: '平台使用 IRR 摊销；租赁使用折旧残值率和折旧年限摊销', params: 'IRR、折旧残值率、折旧年限', relation: ['摊销参数', '资产成本', '单车毛利'] },
+      provision: { name: '预计负债', formula: '单车售价 × 预计负债比例，并与累计运营成本做孰高判断', params: '售价、预计负债比例、累计运营成本', relation: ['预计负债', '卖车成本', '单车毛利'] },
+      warehouse: { name: '仓储', formula: '单车仓储固定额', params: '仓储成本', relation: ['仓储配置', '运营固定成本', '单车毛利'] },
+      ground: { name: '地勤人员', formula: '地勤成本 / 地勤人车比 × (1+排班冗余)', params: '地勤成本、地勤人车比、排班冗余', relation: ['地勤人效', '运营固定成本', '单车毛利'] },
+      route: { name: '路线部署', formula: '路线部署月度摊销', params: '路线部署费用', relation: ['路线部署', '运营固定成本', '单车毛利'] }
+    };
+
+    const state = {
+      view: 'compare',
+      mode: 'platform',
+      month: 7,
+      scope: 'unit',
+      focus: 'grossProfit',
+      selected: 'grossProfit',
+      changedVar: 'accidents',
+      inputs: {
+        platformRevenue: 3000,
+        leaseRevenue: 2500,
+        salePrice: 139800,
+        vehicles: 2300,
+        deliveries: 800,
+        hardwareCost: 65000,
+        irr: 0.06,
+        depreciationRate: 0.95,
+        depreciationYears: 5,
+        provisionRate: 0.30,
+        accidents: 23,
+        compensation: 2500,
+        riskProb: 1,
+        mpir: 50,
+        workOrderDuration: 60,
+        remoteRatio: 13,
+        csRatio: 100,
+        groundRatio: 50,
+        emptyMileage: 75,
+        energy: 0.15,
+        electricityPrice: 1,
+        faults: 1
+      },
+      baseline: null
+    };
+    state.baseline = JSON.parse(JSON.stringify(state.inputs));
+
+    const variableGroups = [
+      ['收入与规模', [
+        ['platformRevenue', '平台单车收入', 1000, 6000, 100, '元/月'],
+        ['leaseRevenue', '租赁单车收入', 1000, 6000, 100, '元/月'],
+        ['salePrice', '卖车单车售价', 80000, 180000, 1000, '元'],
+        ['vehicles', '运营车辆数', 100, 3000, 100, '辆']
+      ]],
+      ['资产与硬件', [
+        ['hardwareCost', '硬件成本', 50000, 120000, 1000, '元'],
+        ['irr', 'IRR', 0, 0.12, 0.01, ''],
+        ['depreciationRate', '折旧残值率', 0.5, 1, 0.01, ''],
+        ['provisionRate', '预计负债比例', 0.1, 0.5, 0.01, '']
+      ]],
+      ['运营效率', [
+        ['mpir', 'MPRI', 10, 80, 1, ''],
+        ['workOrderDuration', '工单时长', 20, 120, 5, '秒'],
+        ['emptyMileage', '空跑里程', 20, 120, 5, '公里'],
+        ['energy', '能耗', 0.1, 0.4, 0.01, '度/公里']
+      ]],
+      ['人力效率', [
+        ['remoteRatio', '远驾人车比', 5, 25, 1, ''],
+        ['csRatio', '客服人车比', 30, 200, 10, ''],
+        ['groundRatio', '地勤人车比', 20, 100, 5, '']
+      ]],
+      ['风险与维修', [
+        ['accidents', '百台车月事故次数', 1, 40, 1, '次'],
+        ['compensation', '单次赔偿金额', 1000, 10000, 500, '元'],
+        ['faults', '百台车月故障次数', 0, 5, 0.5, '次']
+      ]]
+    ];
+
+    function fmt(n, suffix = '') {
+      if (!Number.isFinite(n)) return '不适用';
+      return Math.round(n).toLocaleString('zh-CN') + suffix;
+    }
+    function pct(n) { return Number.isFinite(n) ? n.toFixed(1) + '%' : '不适用'; }
+
+    function calculate(mode, inputs = state.inputs) {
+      const revenue = mode === 'platform' ? inputs.platformRevenue : mode === 'lease' ? inputs.leaseRevenue : inputs.salePrice;
+      const charging = mode === 'platform' ? inputs.emptyMileage * inputs.energy * inputs.electricityPrice * 30 : 0;
+      const remote = 9500 / inputs.remoteRatio * 1.1;
+      const cs = 5000 / inputs.csRatio * 1.1;
+      const insurance = 50;
+      const risk = inputs.accidents * inputs.compensation * inputs.riskProb / 100;
+      const traffic = mode === 'platform' ? 100 : 0;
+      const cloud = inputs.mpir * inputs.workOrderDuration * 0.012 + 25;
+      const backup = inputs.accidents * 25 / 100;
+      const repair = inputs.faults * 12 * 80 / 100;
+      const mapping = 50;
+      const variableCost = charging + remote + cs + insurance + risk + traffic + cloud + backup + repair + mapping;
+      const warehouse = mode === 'platform' ? 50 : 0;
+      const ground = 5000 / inputs.groundRatio * 1.1;
+      const route = mode === 'sale' ? 0 : 140;
+      const fixedCost = warehouse + ground + route;
+      const platformAsset = inputs.hardwareCost * (1 + inputs.irr) / 5 / 12;
+      const leaseAsset = inputs.hardwareCost * inputs.depreciationRate / inputs.depreciationYears / 12;
+      const saleProvision = inputs.salePrice * inputs.provisionRate;
+      const assetCost = mode === 'platform' ? platformAsset : mode === 'lease' ? leaseAsset : inputs.hardwareCost + Math.max(variableCost + fixedCost, saleProvision);
+      const totalCost = assetCost + (mode === 'sale' ? 0 : variableCost + fixedCost);
+      const grossProfit = revenue - totalCost;
+      const grossMargin = revenue ? grossProfit / revenue * 100 : 0;
+      const count = mode === 'sale' ? inputs.deliveries : inputs.vehicles;
+      return { revenue, charging, remote, cs, insurance, risk, traffic, cloud, backup, repair, mapping, variableCost, warehouse, ground, route, fixedCost, hardware: inputs.hardwareCost, depreciation: mode === 'platform' ? platformAsset : leaseAsset, provision: mode === 'sale' ? saleProvision : 0, assetCost, totalCost, grossProfit, grossMargin, count };
+    }
+
+    function currentMode() { return state.view === 'compare' ? state.mode : state.view; }
+    function valueForMetric(data, metric) {
+      if (metric === 'grossMargin') return data.grossMargin;
+      return data[metric] ?? 0;
+    }
+    function scopedValue(data, metric) {
+      const v = valueForMetric(data, metric);
+      if (metric === 'grossMargin') return v;
+      return state.scope === 'total' ? v * data.count : v;
+    }
+    function node(key, value, sub, options = {}) {
+      const active = state.selected === key || state.focus === key;
+      const impacted = options.impacted;
+      return `<div class="node ${active ? 'active' : ''} ${impacted ? 'impacted' : ''}" data-node="${key}">
+        <div class="node-title"><span>${formulas[key]?.name || key}</span>${impacted ? '<span class="pill warn">联动</span>' : ''}</div>
+        <div class="node-value">${value}</div>
+        <div class="node-sub">${sub}</div>
+      </div>`;
+    }
+
+    function renderControls() {
+      const monthSelect = document.getElementById('monthSelect');
+      monthSelect.innerHTML = months.map((m, i) => `<option value="${i}">${m}</option>`).join('');
+      document.getElementById('focusSelect').innerHTML = metrics.map(([k, label]) => `<option value="${k}">${label}</option>`).join('');
+      document.getElementById('viewSelect').value = state.view;
+      monthSelect.value = state.month;
+      document.getElementById('scopeSelect').value = state.scope;
+      document.getElementById('focusSelect').value = state.focus;
+      document.getElementById('currentMonthPill').textContent = `${months[state.month]} · ${state.scope === 'unit' ? '单车口径' : '总盘子口径'}`;
+    }
+
+    function renderModeCards() {
+      document.getElementById('modeCards').innerHTML = ['platform', 'lease', 'sale'].map((mode) => {
+        const d = calculate(mode);
+        const gp = scopedValue(d, 'grossProfit');
+        const cost = scopedValue(d, 'totalCost');
+        const rev = scopedValue(d, 'revenue');
+        return `<div class="mode-card ${currentMode() === mode ? 'active' : ''}" data-mode-card="${mode}">
+          <div class="mode-title"><h3>${modeNames[mode]}</h3><span class="pill">${mode === 'sale' ? '一次性' : '月度'}</span></div>
+          <div class="kpis">
+            <div><div class="kpi-label">收入</div><div class="kpi-value">${fmt(rev, state.scope === 'total' ? ' 元' : ' 元')}</div></div>
+            <div><div class="kpi-label">成本</div><div class="kpi-value">${fmt(cost, ' 元')}</div></div>
+            <div><div class="kpi-label">毛利</div><div class="kpi-value ${gp >= 0 ? 'positive' : 'negative'}">${fmt(gp, ' 元')}</div></div>
+            <div><div class="kpi-label">毛利率</div><div class="kpi-value ${d.grossMargin >= 0 ? 'positive' : 'negative'}">${pct(d.grossMargin)}</div></div>
+          </div>
+          <p class="sub">${mode === 'platform' ? '持续经营型，重点看月度收入能否覆盖资产摊销和运营成本。' : mode === 'lease' ? '折旧口径不同，重点看租赁收入与折旧/运营成本关系。' : '一次性收入确认，重点看售价能否覆盖硬件成本和后续责任。'}</p>
+        </div>`;
+      }).join('');
+      document.querySelectorAll('[data-mode-card]').forEach((el) => {
+        el.addEventListener('click', () => {
+          state.mode = el.dataset.modeCard;
+          state.view = el.dataset.modeCard;
+          render();
+        });
+      });
+    }
+
+    function renderDimensionCompare() {
+      document.getElementById('dimensionPill').textContent = metrics.find(([k]) => k === state.focus)?.[1] || '';
+      document.getElementById('metricButtons').innerHTML = metrics.map(([k, label]) => `<button class="metric-button ${state.focus === k ? 'active' : ''}" data-focus="${k}">${label}</button>`).join('');
+      const values = ['platform', 'lease', 'sale'].map((mode) => {
+        const d = calculate(mode);
+        return { mode, value: scopedValue(d, state.focus), raw: d };
+      });
+      const max = Math.max(...values.map((x) => Math.abs(x.value)), 1);
+      document.getElementById('dimensionRows').innerHTML = values.map(({ mode, value }) => {
+        const isPct = state.focus === 'grossMargin';
+        return `<div class="compare-row">
+          <strong>${modeShort[mode]}</strong>
+          <div class="bar-track"><div class="bar-fill" style="width:${Math.max(5, Math.abs(value) / max * 100)}%"></div></div>
+          <strong class="${value >= 0 ? 'positive' : 'negative'}">${isPct ? pct(value) : fmt(value, ' 元')}</strong>
+        </div>`;
+      }).join('');
+      const explainMap = {
+        assetCost: '资产成本是三模式差异最大的来源：平台按 IRR 月度摊销，租赁按折旧摊销，卖车一次性确认硬件并叠加预计负债或累计运营。',
+        variableCost: '运营变动成本由事故、人效、MPRI、能耗、维修等业务变量驱动，适合用来解释运营动作对毛利的影响。',
+        fixedCost: '运营固定成本由仓储、地勤人员、路线部署构成，不直接随单量变化，但会随城市和运维配置变化。',
+        risk: '风险赔偿把事故次数翻译成经营影响，是运营安全动作影响毛利的典型链路。',
+        cloud: '云服务把 MPRI、工单时长、带宽和出口流量翻译成成本，适合技术团队理解性能与成本的关系。',
+        grossProfit: '单车毛利是最终结果指标，三模式差异来自收入确认方式、资产口径和运营成本结构。',
+        totalCost: '单车成本用于解释亏损来源，它可以继续拆成资产、运营变动和运营固定三大类。',
+        revenue: '收入侧在三模式下口径不同：平台/租赁是月度收入，卖车是一次性售价。',
+        grossMargin: '毛利率适合做健康度判断，但需要结合单车毛利和总盘子一起看。',
+        repair: '维修成本由故障次数、维修工时和工时成本驱动，是可靠性影响经营的入口。',
+        ground: '地勤人员成本体现人效，地勤人车比提升会降低单车固定运营成本。'
+      };
+      document.getElementById('dimensionExplanation').textContent = explainMap[state.focus] || '这个指标可以继续在指标分解树里下钻，查看公式、上游参数和下游影响。';
+      document.querySelectorAll('[data-focus]').forEach((el) => {
+        el.addEventListener('click', () => {
+          state.focus = el.dataset.focus;
+          state.selected = el.dataset.focus;
+          render();
+        });
+      });
+    }
+
+    function renderVariables() {
+      document.getElementById('variablePanel').innerHTML = variableGroups.map(([group, vars]) => `<div class="variable-group">
+        <h3>${group}</h3>
+        ${vars.map(([key, label, min, max, step, unit]) => `<div class="var-card ${state.changedVar === key ? 'active' : ''}" data-var="${key}">
+          <div class="var-top"><span>${label}</span><span class="var-value">${fmt(state.inputs[key])}${unit && !['元/月', '元'].includes(unit) ? unit : ''}</span></div>
+          <input type="range" min="${min}" max="${max}" step="${step}" value="${state.inputs[key]}" data-range="${key}" />
+        </div>`).join('')}
+      </div>`).join('');
+      document.querySelectorAll('[data-range]').forEach((el) => {
+        el.addEventListener('input', () => {
+          const key = el.dataset.range;
+          state.inputs[key] = Number(el.value);
+          state.changedVar = key;
+          state.selected = variableToNode(key);
+          render();
+        });
+      });
+    }
+
+    function variableToNode(key) {
+      const map = { accidents: 'risk', compensation: 'risk', riskProb: 'risk', mpir: 'cloud', workOrderDuration: 'cloud', faults: 'repair', remoteRatio: 'remote', csRatio: 'cs', groundRatio: 'ground', hardwareCost: 'assetCost', irr: 'assetCost', depreciationRate: 'assetCost', provisionRate: 'provision', emptyMileage: 'charging', energy: 'charging', platformRevenue: 'revenue', leaseRevenue: 'revenue', salePrice: 'revenue' };
+      return map[key] || state.focus;
+    }
+
+    function impactedNodes() {
+      const map = {
+        accidents: ['risk', 'backup', 'variableCost', 'totalCost', 'grossProfit'],
+        compensation: ['risk', 'variableCost', 'totalCost', 'grossProfit'],
+        faults: ['repair', 'variableCost', 'totalCost', 'grossProfit'],
+        mpir: ['cloud', 'variableCost', 'totalCost', 'grossProfit'],
+        workOrderDuration: ['cloud', 'variableCost', 'totalCost', 'grossProfit'],
+        remoteRatio: ['remote', 'variableCost', 'totalCost', 'grossProfit'],
+        groundRatio: ['ground', 'fixedCost', 'totalCost', 'grossProfit'],
+        hardwareCost: ['hardware', 'assetCost', 'totalCost', 'grossProfit'],
+        platformRevenue: ['revenue', 'grossProfit'],
+        leaseRevenue: ['revenue', 'grossProfit'],
+        salePrice: ['revenue', 'provision', 'assetCost', 'grossProfit']
+      };
+      return new Set(map[state.changedVar] || [state.selected]);
+    }
+
+    function renderTree() {
+      const mode = currentMode();
+      const d = calculate(mode);
+      const impacted = impactedNodes();
+      document.getElementById('treeModePill').textContent = modeNames[mode];
+      document.getElementById('metricTree').innerHTML = `
+        ${node('grossProfit', fmt(d.grossProfit, ' 元'), '= 单车收入 - 单车成本', { impacted: impacted.has('grossProfit') })}
+        <div class="connector"></div>
+        <div class="tree-row two">
+          ${node('revenue', fmt(d.revenue, ' 元'), mode === 'sale' ? '一次性售价' : '月度收入', { impacted: impacted.has('revenue') })}
+          ${node('totalCost', fmt(d.totalCost, ' 元'), '资产 + 运营变动 + 运营固定', { impacted: impacted.has('totalCost') })}
+        </div>
+        <div class="connector"></div>
+        <div class="tree-row three">
+          ${node('assetCost', fmt(d.assetCost, ' 元'), mode === 'sale' ? '硬件 + 预计负债/累计运营' : '资产摊销口径', { impacted: impacted.has('assetCost') })}
+          ${node('variableCost', fmt(d.variableCost, ' 元'), '随事故、人效、MPRI变化', { impacted: impacted.has('variableCost') })}
+          ${node('fixedCost', fmt(d.fixedCost, ' 元'), '仓储、地勤、路线部署', { impacted: impacted.has('fixedCost') })}
+        </div>
+        <div class="connector"></div>
+        <div class="tree-section">
+          <div class="section-title"><span>资产成本继续展开</span><span>解释三模式资产口径差异</span></div>
+          <div class="tree-row asset">
+            ${node('hardware', fmt(d.hardware, ' 元'), 'BOM/采购成本', { impacted: impacted.has('hardware') })}
+            ${node('depreciation', mode === 'sale' ? '不适用' : fmt(d.depreciation, ' 元'), mode === 'platform' ? 'IRR 摊销' : mode === 'lease' ? '折旧摊销' : '卖车不摊销', { impacted: impacted.has('depreciation') })}
+            ${node('provision', mode === 'sale' ? fmt(d.provision, ' 元') : '不适用', '卖车模式使用', { impacted: impacted.has('provision') })}
+          </div>
+        </div>
+        <div class="tree-section">
+          <div class="section-title"><span>运营变动成本继续展开</span><span>事故、人效、MPRI 等业务变量联动</span></div>
+          <div class="tree-row variable">
+            ${node('charging', fmt(d.charging, ' 元'), '能耗/电价/空跑', { impacted: impacted.has('charging') })}
+            ${node('remote', fmt(d.remote, ' 元'), '远驾人车比', { impacted: impacted.has('remote') })}
+            ${node('cs', fmt(d.cs, ' 元'), '客服人车比', { impacted: impacted.has('cs') })}
+            ${node('insurance', fmt(d.insurance, ' 元'), '月度保费', { impacted: impacted.has('insurance') })}
+            ${node('risk', fmt(d.risk, ' 元'), '事故次数/赔偿', { impacted: impacted.has('risk') })}
+            ${node('traffic', fmt(d.traffic, ' 元'), '流量套餐', { impacted: impacted.has('traffic') })}
+            ${node('cloud', fmt(d.cloud, ' 元'), 'MPRI/工单', { impacted: impacted.has('cloud') })}
+            ${node('backup', fmt(d.backup, ' 元'), '事故触发', { impacted: impacted.has('backup') })}
+            ${node('repair', fmt(d.repair, ' 元'), '故障/维修工时', { impacted: impacted.has('repair') })}
+            ${node('mapping', fmt(d.mapping, ' 元'), '月度摊销', { impacted: impacted.has('mapping') })}
+          </div>
+        </div>
+        <div class="tree-section">
+          <div class="section-title"><span>运营固定成本继续展开</span><span>固定配置也会影响单车毛利</span></div>
+          <div class="tree-row fixed">
+            ${node('warehouse', fmt(d.warehouse, ' 元'), '仓储固定额', { impacted: impacted.has('warehouse') })}
+            ${node('ground', fmt(d.ground, ' 元'), '地勤人车比', { impacted: impacted.has('ground') })}
+            ${node('route', fmt(d.route, ' 元'), '路线月度摊销', { impacted: impacted.has('route') })}
+          </div>
+        </div>`;
+      document.querySelectorAll('[data-node]').forEach((el) => {
+        el.addEventListener('click', () => {
+          state.selected = el.dataset.node;
+          state.focus = ['grossProfit', 'totalCost', 'revenue', 'assetCost', 'variableCost', 'fixedCost', 'risk', 'cloud', 'repair', 'ground'].includes(state.selected) ? state.selected : state.focus;
+          render();
+        });
+      });
+    }
+
+    function renderDrawer() {
+      const key = state.selected;
+      const f = formulas[key] || formulas.grossProfit;
+      const d = calculate(currentMode());
+      const value = d[key] ?? (key === 'grossProfit' ? d.grossProfit : 0);
+      document.getElementById('drawerTitle').textContent = f.name;
+      document.getElementById('drawer').innerHTML = `
+        <div class="drawer-block">
+          <div class="kpi-label">当前值</div>
+          <div class="kpi-value">${fmt(value, ' 元/车')}</div>
+        </div>
+        <div class="drawer-block">
+          <h3>计算公式</h3>
+          <p class="sub">${f.formula}</p>
+        </div>
+        <div class="drawer-block">
+          <h3>上游参数</h3>
+          <p class="sub">${f.params}</p>
+        </div>
+        <div class="drawer-block">
+          <h3>影响链路</h3>
+          <div class="chain">${f.relation.map((x) => `<div class="chain-item">${x}</div>`).join('')}</div>
+        </div>
+        <div class="drawer-block">
+          <h3>业务解释</h3>
+          <p class="sub">这个节点把业务动作翻译成经营结果。数值变大如果属于成本项，会推高单车成本并压低单车毛利；如果属于收入项，会直接改善毛利。</p>
+        </div>`;
+    }
+
+    function renderImpactSummary() {
+      const mode = currentMode();
+      const now = calculate(mode, state.inputs);
+      const base = calculate(mode, state.baseline);
+      const deltaGp = now.grossProfit - base.grossProfit;
+      const deltaCost = now.totalCost - base.totalCost;
+      const label = variableGroups.flatMap(([, vars]) => vars).find(([key]) => key === state.changedVar)?.[1] || '业务变量';
+      document.getElementById('impactSummary').innerHTML = `
+        <h2>本次变化摘要</h2>
+        <p class="sub">${label} 已变化。页面高亮了它影响到的指标链路。</p>
+        <div class="kpis">
+          <div><div class="kpi-label">单车毛利变化</div><div class="kpi-value ${deltaGp >= 0 ? 'positive' : 'negative'}">${deltaGp >= 0 ? '+' : ''}${fmt(deltaGp, ' 元')}</div></div>
+          <div><div class="kpi-label">单车成本变化</div><div class="kpi-value ${deltaCost <= 0 ? 'positive' : 'negative'}">${deltaCost >= 0 ? '+' : ''}${fmt(deltaCost, ' 元')}</div></div>
+        </div>
+        <p class="sub" style="margin-top:10px;">经营解释：${label} 通过 ${formulas[variableToNode(state.changedVar)]?.name || '相关指标'} 传导到成本和毛利。非财务用户可以沿着高亮链路看到“我的动作影响了哪里”。</p>`;
+      const series = [0.82, 0.74, 0.66, 0.58, 0.51, 0.47, 0.42, Math.max(0.2, 0.42 + deltaGp / 3000)];
+      document.getElementById('trendLine').innerHTML = series.map((h, i) => `<div class="trend-bar ${i < 7 ? 'negative' : ''}" style="height:${Math.round(h * 54)}px"></div>`).join('');
+    }
+
+    function bindControls() {
+      document.getElementById('viewSelect').onchange = (e) => { state.view = e.target.value; if (state.view !== 'compare') state.mode = state.view; render(); };
+      document.getElementById('monthSelect').onchange = (e) => { state.month = Number(e.target.value); render(); };
+      document.getElementById('scopeSelect').onchange = (e) => { state.scope = e.target.value; render(); };
+      document.getElementById('focusSelect').onchange = (e) => { state.focus = e.target.value; state.selected = e.target.value; render(); };
+    }
+
+    function render() {
+      renderControls();
+      renderModeCards();
+      renderDimensionCompare();
+      renderVariables();
+      renderTree();
+      renderDrawer();
+      renderImpactSummary();
+      bindControls();
+    }
+
+    render();
+  </script>
+</body>
+</html>
