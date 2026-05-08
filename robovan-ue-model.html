@@ -717,6 +717,47 @@
     }
     .stacked-legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 4px; vertical-align: middle; }
 
+    .tornado-chart { display: grid; gap: 6px; margin-top: 10px; }
+    .tornado-row {
+      display: grid;
+      grid-template-columns: 140px 1fr 90px;
+      gap: 12px;
+      align-items: center;
+      padding: 6px 0;
+    }
+    .tornado-track {
+      position: relative;
+      height: 22px;
+      background: #f8fafc;
+      border-radius: 4px;
+    }
+    .tornado-track .center-line {
+      position: absolute; left: 50%; top: -2px; bottom: -2px;
+      width: 2px; background: #475569;
+    }
+    .tornado-bar {
+      position: absolute;
+      top: 3px; bottom: 3px;
+      border-radius: 3px;
+      display: flex; align-items: center; padding: 0 6px;
+      font-size: 11px; font-weight: 700; color: #fff; white-space: nowrap;
+    }
+    .tornado-bar.minus { background: linear-gradient(90deg, #fca5a5, #ef4444); justify-content: flex-start; }
+    .tornado-bar.plus { background: linear-gradient(90deg, #10b981, #34d399); justify-content: flex-end; }
+    .tornado-label { font-weight: 700; }
+    .tornado-impact { text-align: right; font-weight: 700; font-size: 13px; }
+    .tornado-axis {
+      display: grid;
+      grid-template-columns: 140px 1fr 90px;
+      gap: 12px;
+      font-size: 11px; color: var(--muted);
+      margin-top: 8px;
+      align-items: center;
+    }
+    .tornado-axis .axis-marks {
+      display: flex; justify-content: space-between;
+    }
+
     .sankey-wrap { margin-top: 14px; padding: 12px; background: var(--soft); border-radius: 12px; }
     .sankey-svg { width: 100%; height: 360px; }
 
@@ -944,6 +985,19 @@
           </div>
           <div class="card-body">
             <div id="goalAbPanel"></div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-header">
+            <div>
+              <h2>敏感性龙卷风图</h2>
+              <p class="sub">把每个变量分别 ±10%，看哪个对全年毛利的拉动力最大。条越长，越值得优先优化。</p>
+            </div>
+            <span class="pill" id="tornadoModePill"></span>
+          </div>
+          <div class="card-body">
+            <div id="tornadoChart"></div>
           </div>
         </section>
 
@@ -1468,6 +1522,84 @@
           <span><i style="background:#ef4444"></i>亏损（红）</span>
         </div>
       </div>`;
+    }
+
+    function renderTornado() {
+      const target = document.getElementById('tornadoChart');
+      if (!target) return;
+      const mode = currentMode();
+      const pill = document.getElementById('tornadoModePill');
+      if (pill) pill.textContent = `${modeNames[mode]} · 全年总毛利`;
+      const baseGp = computeAnnualGpForInputs(mode, state.inputs);
+      const candidates = [
+        { key: 'hardwareCost', label: '硬件成本', dir: -1 },
+        { key: 'accidents', label: '事故次数', dir: -1 },
+        { key: 'mpir', label: 'MPRI', dir: -1 },
+        { key: 'salePrice', label: '卖车单价', dir: 1, modes: ['sale'] },
+        { key: 'platformRevenue', label: '平台单车收入', dir: 1, modes: ['platform'] },
+        { key: 'leaseRevenue', label: '租赁单车收入', dir: 1, modes: ['lease'] },
+        { key: 'vehicles', label: '运营车辆数', dir: 1 },
+        { key: 'energy', label: '能耗', dir: -1 },
+        { key: 'remoteRatio', label: '远驾人车比', dir: 1 },
+        { key: 'emptyMileage', label: '空跑里程', dir: -1 },
+        { key: 'depreciationYears', label: '折旧年限', dir: 1, modes: ['lease'] },
+        { key: 'irr', label: 'IRR（资金成本）', dir: -1, modes: ['platform'] },
+        { key: 'compensation', label: '单次赔偿金额', dir: -1 },
+        { key: 'faults', label: '故障次数', dir: -1 },
+        { key: 'csRatio', label: '客服人车比', dir: 1 },
+        { key: 'groundRatio', label: '地勤人车比', dir: 1 }
+      ];
+      const rows = [];
+      candidates.forEach((c) => {
+        if (c.modes && !c.modes.includes(mode)) return;
+        const baseVal = state.inputs[c.key];
+        if (!baseVal && baseVal !== 0) return;
+        if (baseVal === 0) return;
+        const trialMinus = { ...state.inputs }; trialMinus[c.key] = baseVal * 0.9;
+        const trialPlus = { ...state.inputs }; trialPlus[c.key] = baseVal * 1.1;
+        const gpMinus = computeAnnualGpForInputs(mode, trialMinus);
+        const gpPlus = computeAnnualGpForInputs(mode, trialPlus);
+        const dMinus = gpMinus - baseGp;
+        const dPlus = gpPlus - baseGp;
+        const maxAbs = Math.max(Math.abs(dMinus), Math.abs(dPlus));
+        if (maxAbs < 1) return;
+        rows.push({ ...c, dMinus, dPlus, maxAbs });
+      });
+      rows.sort((a, b) => b.maxAbs - a.maxAbs);
+      const top = rows.slice(0, 12);
+      const globalMax = Math.max(...top.map((r) => r.maxAbs), 1);
+      target.innerHTML = `<div class="tornado-chart">
+        ${top.map((r) => {
+          const minusW = Math.abs(r.dMinus) / globalMax * 50;
+          const plusW = Math.abs(r.dPlus) / globalMax * 50;
+          const minusLeft = 50 - minusW;
+          const plusLeft = 50;
+          const minusCls = r.dMinus < 0 ? 'minus' : 'plus';
+          const plusCls = r.dPlus >= 0 ? 'plus' : 'minus';
+          const minusPos = r.dMinus < 0;
+          const plusPos = r.dPlus >= 0;
+          const totalSwing = Math.abs(r.dMinus) + Math.abs(r.dPlus);
+          return `<div class="tornado-row">
+            <div class="tornado-label">${r.label}<div class="sub">${'-10% / +10%'}</div></div>
+            <div class="tornado-track">
+              <div class="center-line"></div>
+              <div class="tornado-bar ${minusCls}" style="left:${minusPos ? minusLeft : 50}%; width:${minusW}%;" title="-10%: ${fmt(r.dMinus, ' 元')}">${minusW > 8 ? fmt(r.dMinus, '') : ''}</div>
+              <div class="tornado-bar ${plusCls}" style="left:${plusPos ? plusLeft : (50 - plusW)}%; width:${plusW}%;" title="+10%: ${fmt(r.dPlus, ' 元')}">${plusW > 8 ? '+' + fmt(r.dPlus, '').replace('-', '−') : ''}</div>
+            </div>
+            <div class="tornado-impact ${r.maxAbs >= globalMax * 0.5 ? 'positive' : ''}">${fmt(r.maxAbs, ' 元')}</div>
+          </div>`;
+        }).join('')}
+      </div>
+      <div class="tornado-axis">
+        <div></div>
+        <div class="axis-marks">
+          <span>↓ 拉低毛利</span>
+          <span style="font-weight:700;color:#475569;">基线 ${fmt(baseGp, ' 元')}</span>
+          <span>↑ 提升毛利</span>
+        </div>
+        <div style="text-align:right;">摆动幅度</div>
+      </div>
+      <p class="sub" style="margin-top:10px;">阅读方式：变量名右侧的红条表示「-10%」时毛利的变化（变红=变差），绿条表示「+10%」时的变化。条越长说明这个变量对毛利越敏感，应优先优化。摆动幅度列显示该变量 ±10% 范围的最大单边影响。</p>`;
     }
 
     function renderSankey() {
@@ -2775,6 +2907,7 @@
       renderBulletChart();
       renderStackedChart();
       renderGoalAbPanel();
+      renderTornado();
       renderSankey();
       renderModeCards();
       renderDimensionCompare();
