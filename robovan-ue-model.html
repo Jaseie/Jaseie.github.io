@@ -417,13 +417,16 @@
 
     .workbench {
       display: grid;
-      grid-template-columns: 300px minmax(0, 1fr) 380px;
+      grid-template-columns: 300px minmax(0, 1fr);
       gap: 16px;
       align-items: start;
       min-height: calc(100vh - 156px);
     }
+    .workbench.tree-mode {
+      grid-template-columns: 300px minmax(0, 1fr) 380px;
+    }
     .workbench.compare-mode {
-      grid-template-columns: minmax(0, 1fr);
+      grid-template-columns: 300px minmax(0, 1fr);
     }
     .workbench.annual-mode {
       grid-template-columns: 300px minmax(0, 1fr);
@@ -892,6 +895,60 @@
       to { opacity: 1; transform: translateY(0); }
     }
 
+    .toolbar2 {
+      display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+      padding: 10px 14px;
+      background: #fff;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      margin-bottom: 14px;
+      box-shadow: 0 1px 2px rgba(15,23,42,0.04);
+      position: sticky; top: 8px; z-index: 30;
+    }
+    .toolbar2 .tb-group {
+      display: inline-flex; gap: 0; border: 1px solid var(--line);
+      border-radius: 8px; overflow: hidden; background: var(--soft);
+    }
+    .toolbar2 .tb-btn {
+      padding: 7px 14px; border: none; background: transparent;
+      cursor: pointer; font-size: 13px; color: var(--muted); font-weight: 600;
+      border-right: 1px solid var(--line);
+    }
+    .toolbar2 .tb-btn:last-child { border-right: none; }
+    .toolbar2 .tb-btn.active { background: var(--accent); color: #fff; }
+    .toolbar2 .tb-btn:hover:not(.active) { background: #fff; color: var(--text); }
+    .toolbar2 .tb-toggle {
+      padding: 7px 12px; border: 1px solid var(--line); border-radius: 8px;
+      background: #fff; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--muted);
+    }
+    .toolbar2 .tb-toggle.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .toolbar2 .tb-spacer { flex: 1; }
+    .toolbar2 .tb-meta { font-size: 12px; color: var(--muted); }
+
+    .role-strip {
+      display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+      padding: 10px 14px; background: #fff;
+      border-radius: 12px; border: 1px solid var(--line);
+      margin-bottom: 14px;
+    }
+    .role-strip .rs-label { font-size: 12px; color: var(--muted); margin-right: 4px; font-weight: 600; }
+    .role-strip .rs-chip {
+      padding: 5px 12px; border-radius: 999px; border: 1px solid var(--line);
+      background: var(--soft); cursor: pointer; font-size: 13px;
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+    .role-strip .rs-chip:hover { border-color: var(--accent); }
+    .role-strip .rs-chip.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .role-strip .rs-chip .rs-icon { width: 18px; height: 18px; border-radius: 4px; background: var(--accent); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; }
+    .role-strip .rs-chip.active .rs-icon { background: rgba(255,255,255,0.25); }
+
+    body.params-hidden .left-rail { display: none; }
+    body.params-hidden .workbench { grid-template-columns: minmax(0, 1fr); }
+    body.params-hidden .workbench.tree-mode { grid-template-columns: minmax(0, 1fr) 380px; }
+
+    [data-tab] { display: none; }
+    [data-tab].tab-visible { display: block; }
+
     @media (max-width: 1200px) {
       .role-grid { grid-template-columns: repeat(2, 1fr); }
       .workbench { grid-template-columns: 1fr; }
@@ -917,14 +974,14 @@
 </head>
 <body>
   <main class="page">
-    <header class="topbar">
+    <header class="topbar" style="padding: 10px 14px;">
       <div class="topbar-inner">
         <div>
-          <h1>Robovan UE 经营影响模型</h1>
-          <p class="sub">用一张可交互的指标地图，看懂平台、租赁、卖车三种模式下，收入、成本、毛利如何被业务变量影响。</p>
+          <h1 style="font-size: 18px;">Robovan UE 经营影响模型</h1>
+          <p class="sub" style="font-size: 12px;">三模式对比、参数沙盘联动、指标分解树。</p>
         </div>
         <div class="controls">
-          <label class="control">当前视图
+          <label class="control" style="display:none;">当前视图
             <select id="viewSelect">
               <option value="annual">年度经营</option>
               <option value="compare">三模式对比</option>
@@ -936,18 +993,43 @@
           <label class="control">月份
             <select id="monthSelect"></select>
           </label>
-          <label class="control">口径
+          <label class="control" style="display:none;">关注指标
+            <select id="focusSelect"></select>
+          </label>
+          <label class="control" style="display:none;">口径
             <select id="scopeSelect">
               <option value="unit">单车</option>
               <option value="total">总盘子</option>
             </select>
           </label>
-          <label class="control">关注指标
-            <select id="focusSelect"></select>
-          </label>
         </div>
       </div>
     </header>
+
+    <div class="toolbar2">
+      <button class="tb-toggle" id="paramsToggle" title="隐藏左侧参数面板，专注看图">⚙ 隐藏调参</button>
+      <div class="tb-group" role="tablist">
+        <button class="tb-btn" data-tab-btn="overview">概览</button>
+        <button class="tb-btn" data-tab-btn="deepdive">深挖</button>
+        <button class="tb-btn" data-tab-btn="sandbox">沙盘</button>
+        <button class="tb-btn" data-tab-btn="annual">年度</button>
+        <button class="tb-btn" data-tab-btn="tree">指标树</button>
+      </div>
+      <div class="tb-group">
+        <button class="tb-btn" data-mode-btn="platform">平台</button>
+        <button class="tb-btn" data-mode-btn="lease">租赁</button>
+        <button class="tb-btn" data-mode-btn="sale">卖车</button>
+        <button class="tb-btn" data-mode-btn="compare">对比</button>
+      </div>
+      <div class="tb-group">
+        <button class="tb-btn" data-scope-btn="unit">单车</button>
+        <button class="tb-btn" data-scope-btn="total">总盘子</button>
+      </div>
+      <div class="tb-spacer"></div>
+      <span class="tb-meta" id="toolbarMeta"></span>
+    </div>
+
+    <div class="role-strip" id="roleStrip"></div>
 
     <section class="workbench" id="workspaceSection">
       <aside class="left-rail card" id="variableCard">
@@ -974,24 +1056,11 @@
       </aside>
 
       <main class="center-stage">
-        <section class="card">
-          <div class="card-header">
-            <div>
-              <h2>我的岗位 · 我能影响什么</h2>
-              <p class="sub">选择你的角色，下方变量面板会聚焦你能影响的变量；点击后看自己的工作如何改变全年毛利。</p>
-            </div>
-            <span class="pill" id="rolePill">未选择角色</span>
-          </div>
-          <div class="card-body">
-            <div class="role-grid" id="roleGrid"></div>
-          </div>
-        </section>
-
-        <section class="card">
+        <section class="card" data-tab="overview">
           <div class="card-header">
             <div>
               <h2>经营结论</h2>
-              <p class="sub">先给判断，再进入对比或下钻。</p>
+              <p class="sub">30 秒看懂当下三模式的状态。</p>
             </div>
             <span class="pill active" id="currentMonthPill">2026年12月 · 单车口径</span>
           </div>
@@ -1000,11 +1069,11 @@
           </div>
         </section>
 
-        <section class="card">
+        <section class="card" data-tab="overview">
           <div class="card-header">
             <div>
               <h2>三模式毛利子弹图</h2>
-              <p class="sub">一眼看清谁亏谁赚、差距多大。横轴为单车毛利，零线左侧亏、右侧赚。</p>
+              <p class="sub">一眼看清谁亏谁赚、差距多大。零线左侧亏、右侧赚。</p>
             </div>
             <span class="pill active" id="bulletScopePill">单车口径</span>
           </div>
@@ -1013,11 +1082,11 @@
           </div>
         </section>
 
-        <section class="card">
+        <section class="card" data-tab="overview">
           <div class="card-header">
             <div>
               <h2>每 100 元收入花到哪</h2>
-              <p class="sub">100% 堆叠图回答：每赚 100 块，资产成本占多少、变动多少、固定多少，最后剩下多少毛利。</p>
+              <p class="sub">100% 堆叠图回答：每赚 100 块，钱去了哪、剩多少。</p>
             </div>
           </div>
           <div class="card-body">
@@ -1025,36 +1094,11 @@
           </div>
         </section>
 
-        <section class="card">
-          <div class="card-header">
-            <div>
-              <h2>目标反推 &amp; A/B 方案对比</h2>
-              <p class="sub">输入年度目标毛利，系统反推「单变量需要变多少」；保存当前为 A/B 方案，叠加在走势图上对比。</p>
-            </div>
-          </div>
-          <div class="card-body">
-            <div id="goalAbPanel"></div>
-          </div>
-        </section>
-
-        <section class="card">
-          <div class="card-header">
-            <div>
-              <h2>月度成本结构堆叠图</h2>
-              <p class="sub">看全年 12 个月里，每个月的资产/变动/固定成本是怎么演变的；柱顶折线是收入。</p>
-            </div>
-            <span class="pill" id="monthlyStackPill"></span>
-          </div>
-          <div class="card-body">
-            <div id="monthlyStackChart"></div>
-          </div>
-        </section>
-
-        <section class="card">
+        <section class="card" data-tab="deepdive">
           <div class="card-header">
             <div>
               <h2>敏感性龙卷风图</h2>
-              <p class="sub">把每个变量分别 ±10%，看哪个对全年毛利的拉动力最大。条越长，越值得优先优化。</p>
+              <p class="sub">每个变量 ±10%，谁对毛利的拉动力最大，条越长越值得优先优化。</p>
             </div>
             <span class="pill" id="tornadoModePill"></span>
           </div>
@@ -1063,11 +1107,24 @@
           </div>
         </section>
 
-        <section class="card">
+        <section class="card" data-tab="deepdive">
+          <div class="card-header">
+            <div>
+              <h2>月度成本结构堆叠图</h2>
+              <p class="sub">12 个月的资产/变动/固定成本演变，柱顶折线是收入。</p>
+            </div>
+            <span class="pill" id="monthlyStackPill"></span>
+          </div>
+          <div class="card-body">
+            <div id="monthlyStackChart"></div>
+          </div>
+        </section>
+
+        <section class="card" data-tab="deepdive">
           <div class="card-header">
             <div>
               <h2>资金流向桑基图</h2>
-              <p class="sub">从业务输入（车辆、交付）到收入，再分流到三类成本，最终汇成毛利。把"我做了什么"和"经营结果"用一条水流连起来。</p>
+              <p class="sub">从收入到三类成本到毛利的水流图。</p>
             </div>
             <span class="pill" id="sankeyModePill"></span>
           </div>
@@ -1078,19 +1135,19 @@
           </div>
         </section>
 
-        <section class="card compact-modes">
+        <section class="card" data-tab="sandbox">
           <div class="card-header">
             <div>
-              <h2>三模式概览</h2>
-              <p class="sub">点击模式可进入单模式指标树。</p>
+              <h2>目标反推 &amp; A/B 方案对比</h2>
+              <p class="sub">输入年度目标毛利反推单变量需要变多少；保存当前为 A/B 方案叠加对比。</p>
             </div>
           </div>
           <div class="card-body">
-            <div class="grid-3" id="modeCards"></div>
+            <div id="goalAbPanel"></div>
           </div>
         </section>
 
-        <section class="card" id="compareWorkspaceCard" style="display:none;">
+        <section class="card" id="compareWorkspaceCard" data-tab="sandbox" style="display:none;">
           <div class="card-header">
             <div>
               <h2>三模式对比工作区</h2>
@@ -1118,7 +1175,7 @@
           </div>
         </section>
 
-        <section class="card" id="annualWorkspaceCard" style="display:none;">
+        <section class="card" id="annualWorkspaceCard" data-tab="annual" style="display:none;">
           <div class="card-header">
             <div>
               <h2>年度经营视图</h2>
@@ -1131,7 +1188,7 @@
           </div>
         </section>
 
-        <section class="card" id="treeCard">
+        <section class="card" id="treeCard" data-tab="tree">
           <div class="card-header">
             <div>
               <h2>指标地图</h2>
@@ -1147,7 +1204,7 @@
         </section>
       </main>
 
-      <aside class="right-rail" id="drawerCard">
+      <aside class="right-rail" id="drawerCard" data-tab="tree">
         <section class="card">
           <div class="card-header">
             <div>
@@ -1167,7 +1224,7 @@
       </aside>
     </section>
 
-    <section class="bottom-dock card collapsed" id="scenarioDock">
+    <section class="bottom-dock card collapsed" id="scenarioDock" data-tab="sandbox">
       <div class="card-header">
         <div>
           <h2>方案对比</h2>
@@ -1297,6 +1354,8 @@
       unitRevenue: '单车收入', platformRevenue: '平台单车收入', leaseRevenue: '租赁单车收入'
     };
     const state = {
+      tab: 'overview',
+      paramsHidden: false,
       role: null,
       lastImpact: null,
       goalTarget: 0,
@@ -1511,26 +1570,53 @@
     ];
 
     function renderRoleAnchor() {
-      const grid = document.getElementById('roleGrid');
-      if (!grid) return;
-      grid.innerHTML = roles.map((r) => `<div class="role-card ${state.role === r.id ? 'active' : ''}" data-role="${r.id}">
-        <div class="role-icon">${r.icon}</div>
-        <h4>${r.name}</h4>
-        <p class="sub">${r.desc}</p>
-        <div class="role-vars">${r.vars.map((v) => `<span class="role-tag">${variableLabels[v] || v}</span>`).join('')}</div>
-      </div>`).join('');
-      grid.querySelectorAll('[data-role]').forEach((el) => {
+      const strip = document.getElementById('roleStrip');
+      if (!strip) return;
+      strip.innerHTML = `<span class="rs-label">我的岗位 ›</span>
+        ${roles.map((r) => `<span class="rs-chip ${state.role === r.id ? 'active' : ''}" data-role="${r.id}" title="${r.desc}"><span class="rs-icon">${r.icon}</span>${r.name}</span>`).join('')}
+        ${state.role ? `<span class="rs-label" style="margin-left:6px;">你的杠杆：${roles.find((r) => r.id === state.role).vars.map((v) => variableLabels[v] || v).join(' / ')}</span>` : '<span class="rs-label" style="margin-left:6px;color:var(--muted);">点击查看你能影响的变量</span>'}`;
+      strip.querySelectorAll('[data-role]').forEach((el) => {
         el.addEventListener('click', () => {
           state.role = state.role === el.dataset.role ? null : el.dataset.role;
           render();
         });
       });
-      const pill = document.getElementById('rolePill');
-      if (pill) {
-        const r = roles.find((x) => x.id === state.role);
-        pill.textContent = r ? `当前角色：${r.name}` : '未选择角色';
-        pill.classList.toggle('active', !!r);
+    }
+
+    function renderToolbar() {
+      document.querySelectorAll('[data-tab-btn]').forEach((el) => {
+        el.classList.toggle('active', el.dataset.tabBtn === state.tab);
+      });
+      document.querySelectorAll('[data-mode-btn]').forEach((el) => {
+        const isCompare = state.view === 'compare';
+        const matches = el.dataset.modeBtn === 'compare' ? isCompare : (!isCompare && state.mode === el.dataset.modeBtn);
+        el.classList.toggle('active', matches);
+      });
+      document.querySelectorAll('[data-scope-btn]').forEach((el) => {
+        el.classList.toggle('active', el.dataset.scopeBtn === state.scope);
+      });
+      const toggle = document.getElementById('paramsToggle');
+      if (toggle) {
+        toggle.classList.toggle('active', state.paramsHidden);
+        toggle.textContent = state.paramsHidden ? '⚙ 显示调参' : '⚙ 隐藏调参';
       }
+      document.body.classList.toggle('params-hidden', state.paramsHidden);
+      const meta = document.getElementById('toolbarMeta');
+      if (meta) meta.textContent = `${state.view === 'compare' ? '三模式对比' : modeNames[state.mode]} · ${state.scope === 'total' ? '总盘子' : '单车'} · ${months[state.month]}`;
+    }
+
+    function applyTabVisibility() {
+      const isCompare = state.view === 'compare';
+      const isAnnual = state.view === 'annual' || state.tab === 'annual';
+      document.querySelectorAll('[data-tab]').forEach((el) => {
+        const tabs = el.dataset.tab.split(' ');
+        const visible = tabs.includes(state.tab);
+        el.classList.toggle('tab-visible', visible);
+      });
+      const compareCard = document.getElementById('compareWorkspaceCard');
+      if (compareCard) compareCard.style.display = (state.tab === 'sandbox' && isCompare) ? '' : 'none';
+      const annualCard = document.getElementById('annualWorkspaceCard');
+      if (annualCard) annualCard.style.display = state.tab === 'annual' ? '' : 'none';
     }
 
     function renderBulletChart() {
@@ -2087,7 +2173,9 @@
     }
 
     function renderModeCards() {
-      document.getElementById('modeCards').innerHTML = ['platform', 'lease', 'sale'].map((mode) => {
+      const target = document.getElementById('modeCards');
+      if (!target) return;
+      target.innerHTML = ['platform', 'lease', 'sale'].map((mode) => {
         const d = calculate(mode);
         const gp = scopedValue(d, 'grossProfit');
         const cost = scopedValue(d, 'totalCost');
@@ -3071,15 +3159,18 @@
 
     function renderViewMode() {
       const compare = isCompareView();
-      const annual = isAnnualView();
-      document.getElementById('workspaceSection').classList.toggle('compare-mode', compare);
-      document.getElementById('workspaceSection').classList.toggle('annual-mode', annual);
-      document.getElementById('variableCard').style.display = compare ? 'none' : '';
-      document.getElementById('treeCard').style.display = compare || annual ? 'none' : '';
-      document.getElementById('drawerCard').style.display = compare || annual ? 'none' : '';
-      document.getElementById('compareWorkspaceCard').style.display = compare ? '' : 'none';
-      document.getElementById('annualWorkspaceCard').style.display = annual ? '' : 'none';
-      if (annual) {
+      const isTreeTab = state.tab === 'tree';
+      const isAnnualTab = state.tab === 'annual';
+      const ws = document.getElementById('workspaceSection');
+      ws.classList.toggle('tree-mode', isTreeTab);
+      ws.classList.toggle('compare-mode', false);
+      ws.classList.toggle('annual-mode', false);
+      document.getElementById('variableCard').style.display = '';
+      document.getElementById('treeCard').style.display = isTreeTab ? '' : 'none';
+      document.getElementById('drawerCard').style.display = isTreeTab ? '' : 'none';
+      document.getElementById('compareWorkspaceCard').style.display = (state.tab === 'sandbox' && compare) ? '' : 'none';
+      document.getElementById('annualWorkspaceCard').style.display = isAnnualTab ? '' : 'none';
+      if (isAnnualTab) {
         renderAnnualPanel();
         return;
       }
@@ -3116,10 +3207,34 @@
       document.getElementById('monthSelect').onchange = (e) => { state.month = Number(e.target.value); applyMonthDefaults(state.month); render(); };
       document.getElementById('scopeSelect').onchange = (e) => { state.scope = e.target.value; render(); };
       document.getElementById('focusSelect').onchange = (e) => { state.focus = e.target.value; state.selected = e.target.value; render(); };
+      document.querySelectorAll('[data-tab-btn]').forEach((el) => {
+        el.onclick = () => {
+          state.tab = el.dataset.tabBtn;
+          if (state.tab === 'annual') state.view = 'annual';
+          else if (state.tab === 'sandbox' && state.view === 'annual') state.view = state.mode;
+          else if (state.view === 'annual' && state.tab !== 'annual') state.view = state.mode;
+          render();
+        };
+      });
+      document.querySelectorAll('[data-mode-btn]').forEach((el) => {
+        el.onclick = () => {
+          const v = el.dataset.modeBtn;
+          if (v === 'compare') { state.view = 'compare'; }
+          else { state.mode = v; state.view = v; }
+          render();
+        };
+      });
+      document.querySelectorAll('[data-scope-btn]').forEach((el) => {
+        el.onclick = () => { state.scope = el.dataset.scopeBtn; render(); };
+      });
+      const toggle = document.getElementById('paramsToggle');
+      if (toggle) toggle.onclick = () => { state.paramsHidden = !state.paramsHidden; render(); };
     }
 
     function render() {
       renderControls();
+      renderToolbar();
+      applyTabVisibility();
       renderRoleAnchor();
       renderHomeInsights();
       renderBulletChart();
