@@ -3226,8 +3226,13 @@
       document.querySelectorAll('[data-mode-btn]').forEach((el) => {
         el.onclick = () => {
           const v = el.dataset.modeBtn;
-          if (v === 'compare') { state.view = 'compare'; }
-          else { state.mode = v; state.view = v; }
+          if (v === 'compare') {
+            state.view = 'compare';
+            state.tab = 'sandbox';
+          } else {
+            state.mode = v;
+            state.view = v;
+          }
           render();
         };
       });
